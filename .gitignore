@@ -39,3 +39,7 @@ uv.lock
 # Session-close runner artifacts
 .session-close-state.json
 .session-close.lock
+
+# Beads / Dolt files (added by bd init)
+.beads-credential-key
+.beads/proxieddb/

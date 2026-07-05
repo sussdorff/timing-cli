@@ -1,0 +1,66 @@
+#!/usr/bin/env bash
+# Strip Claude-related Co-Author / generator trailers from commit messages.
+# Applies globally (via git config --global core.hooksPath).
+# Per user rule (~/.claude/CLAUDE.md): clean commits — no "Co-Authored-By: Claude*"
+# and no "Generated with [Claude Code]" boilerplate.
+
+set -eu
+
+msg_file="$1"
+# $2 source: message|template|merge|squash|commit (unused — strip regardless)
+# $3 sha of commit being amended (unused)
+
+# Strip lines matching Claude trailers.
+# Patterns:
+#   Co-Authored-By: Claude ...
+#   Co-Authored-By: ... <noreply@anthropic.com>
+#   🤖 Generated with [Claude Code]...
+#   Generated with Claude Code...
+sed -i.bak -E \
+  -e '/^[[:space:]]*Co-Authored-By:.*Claude.*$/Id' \
+  -e '/^[[:space:]]*Co-Authored-By:.*<noreply@anthropic\.com>[[:space:]]*$/Id' \
+  -e '/^[[:space:]]*🤖[[:space:]]*Generated with \[Claude Code\].*$/d' \
+  -e '/^[[:space:]]*Generated with \[?Claude Code\]?.*$/Id' \
+  "$msg_file"
+
+# Collapse trailing blank lines left by removals.
+# awk trick: print lines; buffer trailing blanks and flush on non-blank.
+awk '
+  /^[[:space:]]*$/ { blanks = blanks $0 "\n"; next }
+  { printf "%s", blanks; blanks = ""; print }
+' "$msg_file" > "$msg_file.trim" && mv "$msg_file.trim" "$msg_file"
+
+rm -f "$msg_file.bak"
+
+# --- BEGIN BEADS INTEGRATION v1.0.5 ---
+# This section is managed by beads. Do not remove these markers.
+if command -v bd >/dev/null 2>&1; then
+  export BD_GIT_HOOK=1
+  _bd_timeout=${BEADS_HOOK_TIMEOUT:-300}
+  _bd_used_perl=0
+  if command -v timeout >/dev/null 2>&1; then
+    timeout "$_bd_timeout" bd hooks run prepare-commit-msg "$@"
+    _bd_exit=$?
+  elif command -v gtimeout >/dev/null 2>&1; then
+    gtimeout "$_bd_timeout" bd hooks run prepare-commit-msg "$@"
+    _bd_exit=$?
+  elif command -v perl >/dev/null 2>&1; then
+    _bd_used_perl=1
+    perl -e 'alarm shift; exec @ARGV' "$_bd_timeout" bd hooks run prepare-commit-msg "$@"
+    _bd_exit=$?
+  else
+    echo >&2 "beads: hook 'prepare-commit-msg' running without timeout; install coreutils or perl to enable BEADS_HOOK_TIMEOUT"
+    bd hooks run prepare-commit-msg "$@"
+    _bd_exit=$?
+  fi
+  if [ $_bd_exit -eq 124 ] || { [ $_bd_used_perl -eq 1 ] && [ $_bd_exit -eq 142 ]; }; then
+    echo >&2 "beads: hook 'prepare-commit-msg' timed out after ${_bd_timeout}s — continuing without beads"
+    _bd_exit=0
+  fi
+  if [ $_bd_exit -eq 3 ]; then
+    echo >&2 "beads: database not initialized — skipping hook 'prepare-commit-msg'"
+    _bd_exit=0
+  fi
+  if [ $_bd_exit -ne 0 ]; then exit $_bd_exit; fi
+fi
+# --- END BEADS INTEGRATION v1.0.5 ---
