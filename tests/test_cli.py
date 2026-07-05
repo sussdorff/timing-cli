@@ -8,7 +8,7 @@ runner = CliRunner()
 
 
 def test_usage_rejects_invalid_date_without_traceback():
-    result = runner.invoke(app, ["usage", "--date", "not-a-date"])
+    result = runner.invoke(app, ["usage", "--date", "not-a-date"], color=False)
 
     assert result.exit_code != 0
     assert "Invalid value" in result.output
@@ -25,6 +25,7 @@ def test_summary_rejects_inverted_window():
             "--to",
             "2026-07-05T00:00:00",
         ],
+        color=False,
     )
 
     assert result.exit_code != 0
@@ -33,7 +34,7 @@ def test_summary_rejects_inverted_window():
 
 
 def test_serve_rejects_unknown_transport_without_traceback():
-    result = runner.invoke(app, ["serve", "--transport", "nope"])
+    result = runner.invoke(app, ["serve", "--transport", "nope"], color=False)
 
     assert result.exit_code == 1
     assert "Unknown transport: nope" in result.output
