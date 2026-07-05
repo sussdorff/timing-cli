@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from collections import Counter
-from datetime import datetime, time, timedelta
+from datetime import date, datetime, time, timedelta
 
 from timing_cli.models import AppUsage, ProjectSummary, TimeEntrySuggestion
 from timing_cli.rules import UNASSIGNED, Classification, Classifier
@@ -14,7 +14,15 @@ def _local_day(dt: datetime) -> str:
 
 
 def _next_local_midnight(dt: datetime) -> datetime:
-    return datetime.combine(dt.date() + timedelta(days=1), time.min, tzinfo=dt.tzinfo)
+    next_day = dt.astimezone().date() + timedelta(days=1)
+    return _local_midnight(next_day)
+
+
+def _local_midnight(day: date) -> datetime:
+    # Build local wall-clock midnight through the platform timezone database so
+    # DST offset changes between ``dt`` and the next day are applied correctly.
+    naive_midnight = datetime.combine(day, time.min)
+    return datetime.fromtimestamp(naive_midnight.timestamp()).astimezone()
 
 
 def _split_at_local_midnight(start: datetime, end: datetime) -> list[tuple[datetime, datetime]]:

@@ -25,6 +25,8 @@ RECOGNIZED_FIELDS = {
     "webDomain",
 }
 
+MIN_TEXT_MATCH_LENGTH = 3
+
 
 @dataclass(frozen=True)
 class TimingPredicateCondition:
@@ -46,10 +48,9 @@ class TimingPredicateCondition:
                 for haystack in haystacks
             )
         return any(
-            value.lower() in haystack
+            _text_value_matches(value, haystack)
             for value in self.values
             for haystack in haystacks
-            if value
         )
 
 
@@ -94,13 +95,24 @@ def _haystacks_for_field(field: str, usage: AppUsage) -> tuple[str, ...]:
 
 def _keyword_matches(value: str, haystack: str) -> bool:
     keyword = value.strip().lower()
-    if len(keyword) < 3:
+    if len(keyword) < MIN_TEXT_MATCH_LENGTH:
         return False
     if not re.search(r"\w", keyword):
         return False
     if re.search(r"\s", keyword):
         return keyword in haystack
     return re.search(rf"(?<!\w){re.escape(keyword)}(?!\w)", haystack) is not None
+
+
+def _text_value_matches(value: str, haystack: str) -> bool:
+    needle = value.strip().lower()
+    if len(needle) < MIN_TEXT_MATCH_LENGTH:
+        return False
+    if not re.search(r"\w", needle):
+        return False
+    if re.search(r"\s", needle):
+        return needle in haystack
+    return re.search(rf"(?<!\w){re.escape(needle)}(?!\w)", haystack) is not None
 
 
 def _extract_conditions(data: bytes) -> Iterator[TimingPredicateCondition]:
@@ -176,15 +188,21 @@ def _read_varint(data: bytes, index: int) -> tuple[int, int]:
 
 
 def _recognized_strings(data: bytes) -> list[str]:
-    return [value for value in _all_printable_strings(data) if value in RECOGNIZED_FIELDS]
+    return [value for value in _protobuf_text_values(data) if value in RECOGNIZED_FIELDS]
 
 
 def _value_strings(data: bytes) -> list[str]:
-    return [
-        value
-        for value in _all_printable_strings(data)
-        if value not in RECOGNIZED_FIELDS and len(value) >= 2
-    ]
+    values: list[str] = []
+    for value in _protobuf_text_values(data):
+        normalized = value.strip()
+        if normalized in RECOGNIZED_FIELDS:
+            continue
+        if len(normalized) < MIN_TEXT_MATCH_LENGTH:
+            continue
+        if not re.search(r"\w", normalized):
+            continue
+        values.append(normalized)
+    return values
 
 
 def _value_ints(data: bytes) -> list[int]:
@@ -202,12 +220,11 @@ def _value_ints(data: bytes) -> list[int]:
     return ints
 
 
-def _all_printable_strings(data: bytes) -> list[str]:
+def _protobuf_text_values(data: bytes) -> list[str]:
     values: list[str] = []
-    values.extend(
-        match.group(0).decode("utf-8", errors="ignore")
-        for match in re.finditer(rb"[\x20-\x7e]{2,}", data)
-    )
+    text = _decode_text_value(data)
+    if text is not None:
+        values.append(text)
 
     try:
         fields = list(_decode_fields(data))
@@ -216,8 +233,20 @@ def _all_printable_strings(data: bytes) -> list[str]:
 
     for _field_number, wire_type, value in fields:
         if wire_type == 2 and isinstance(value, bytes):
-            values.extend(_all_printable_strings(value))
+            values.extend(_protobuf_text_values(value))
     return list(_dedupe(values))
+
+
+def _decode_text_value(data: bytes) -> str | None:
+    try:
+        text = data.decode("utf-8")
+    except UnicodeDecodeError:
+        return None
+    if not text:
+        return None
+    if any(ord(char) < 32 or ord(char) == 127 for char in text):
+        return None
+    return text
 
 
 def _dedupe(values: list[str]) -> Iterator[str]:

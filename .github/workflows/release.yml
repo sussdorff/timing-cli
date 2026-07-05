@@ -4,8 +4,6 @@ on:
   push:
     tags:
       - "v[0-9]*"
-  release:
-    types: [published]
   workflow_dispatch:
 
 permissions:
@@ -44,7 +42,6 @@ jobs:
 
   publish:
     needs: [test, lint]
-    if: github.event_name != 'push'
     runs-on: ubuntu-latest
     environment:
       name: pypi
@@ -60,10 +57,10 @@ jobs:
       - name: Set package version
         id: ver
         run: |
-          if [ "${{ github.event_name }}" = "release" ]; then
+          if [ "${GITHUB_REF_TYPE}" = "tag" ]; then
             VERSION="${GITHUB_REF_NAME#v}"
           else
-            VERSION="$(cat VERSION)"
+            VERSION="$(uv version --short)"
           fi
           uv version "$VERSION"
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
@@ -75,7 +72,6 @@ jobs:
         run: uv publish --trusted-publishing always
 
       - name: Create GitHub release
-        if: github.event_name == 'workflow_dispatch'
         uses: softprops/action-gh-release@v2
         with:
           tag_name: v${{ steps.ver.outputs.version }}

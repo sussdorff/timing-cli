@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta
+import os
+import time as time_module
+from datetime import datetime, timedelta, timezone
 
 from timing_cli.analysis import aggregate, summarize_by_project
 from timing_cli.config import Rule
@@ -140,6 +142,48 @@ def test_aggregate_splits_blocks_at_local_midnight():
         ("2026-07-05", start, midnight),
         ("2026-07-06", midnight, end),
     ]
+
+
+def test_regression_aggregate_splits_at_local_midnight_across_dst_change(monkeypatch):
+    old_tz = os.environ.get("TZ")
+    monkeypatch.setenv("TZ", "Europe/Berlin")
+    if hasattr(time_module, "tzset"):
+        time_module.tzset()
+
+    try:
+        classifier = Classifier([])
+        start = datetime(2026, 3, 29, 1, 30, tzinfo=timezone(timedelta(hours=1)))
+        midnight = datetime(2026, 3, 30, 0, 0).astimezone()
+        end = datetime(2026, 3, 30, 0, 30, tzinfo=timezone(timedelta(hours=2)))
+        slices = [
+            AppUsage(
+                id=1,
+                start=start,
+                end=end,
+                app="Xcode",
+                project_id=1,
+                project_title="Work",
+            )
+        ]
+
+        entries = aggregate(
+            slices,
+            classifier,
+            min_block_seconds=0,
+            gap_merge_seconds=300,
+        )
+
+        assert [(entry.day, entry.start, entry.end) for entry in entries] == [
+            ("2026-03-29", start, midnight),
+            ("2026-03-30", midnight, end),
+        ]
+    finally:
+        if old_tz is None:
+            os.environ.pop("TZ", None)
+        else:
+            os.environ["TZ"] = old_tz
+        if hasattr(time_module, "tzset"):
+            time_module.tzset()
 
 
 def test_skipped_overlapping_unassigned_slice_does_not_clip_assigned_time():

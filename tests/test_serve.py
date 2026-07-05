@@ -15,6 +15,7 @@ def reset_mcp_auth():
 
 
 def test_http_transport_requires_bearer_token(monkeypatch):
+    monkeypatch.delenv("TIMING_MCP_TOKEN", raising=False)
     monkeypatch.setattr(serve, "load_config", lambda: Config())
 
     with pytest.raises(ValueError, match="HTTP transport requires"):
@@ -22,6 +23,7 @@ def test_http_transport_requires_bearer_token(monkeypatch):
 
 
 def test_http_transport_configures_auth(monkeypatch):
+    monkeypatch.delenv("TIMING_MCP_TOKEN", raising=False)
     calls = []
 
     def fake_run(*args, **kwargs):
