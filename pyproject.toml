@@ -1,0 +1,77 @@
+[project]
+name = "timing-cli"
+version = "0.1.0"
+description = "CLI + MCP server for the Timing.app macOS time tracker - reads the local activity database and generates/pushes time entries via the Timing Web API"
+authors = [
+    { name = "Malte Sussdorff" },
+]
+readme = "README.md"
+requires-python = ">=3.12"
+license = "MIT"
+license-files = ["LICENSE"]
+keywords = ["timing", "time-tracking", "cli", "mcp", "macos", "productivity"]
+classifiers = [
+    "Environment :: Console",
+    "Intended Audience :: End Users/Desktop",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: MacOS",
+    "Operating System :: MacOS :: MacOS X",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Office/Business",
+    "Topic :: Utilities",
+]
+dependencies = [
+    "typer>=0.15.0",
+    "rich>=13.0.0",
+    "fastmcp>=2.0",
+    "mcp>=1.23.0",
+    "httpx>=0.27.0",
+    "pydantic>=2.0.0",
+]
+
+[project.scripts]
+timing = "timing_cli.cli:app"
+
+[project.urls]
+Homepage = "https://github.com/sussdorff/timing-cli"
+Repository = "https://github.com/sussdorff/timing-cli"
+Issues = "https://github.com/sussdorff/timing-cli/issues"
+Changelog = "https://github.com/sussdorff/timing-cli/blob/main/CHANGELOG.md"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["timing_cli"]
+
+[tool.hatch.build.targets.sdist]
+include = [
+    "/timing_cli",
+    "/README.md",
+    "/CHANGELOG.md",
+    "/LICENSE",
+    "/cliff.toml",
+]
+
+[dependency-groups]
+dev = [
+    "git-cliff>=2.12.0",
+    "pytest>=8.0.0",
+    "pytest-cov>=6.0.0",
+    "ruff>=0.8.0",
+    "bandit>=1.8.0",
+]
+
+[tool.ruff]
+target-version = "py312"
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "C4"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-v"
