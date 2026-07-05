@@ -1,0 +1,33 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  quality:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v6
+
+      - name: Run test suite
+        run: uv run pytest -q
+
+      - name: Ruff
+        run: uv run ruff check .
+
+      - name: Bandit
+        run: uv run bandit -r timing_cli -q
+
+      - name: Build package
+        run: uv build
