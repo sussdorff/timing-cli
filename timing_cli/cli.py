@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from datetime import date, datetime, time, timedelta
-from typing import Optional
 
 import typer
 
@@ -11,9 +10,17 @@ from timing_cli import __version__
 from timing_cli.analysis import aggregate, summarize_by_project
 from timing_cli.api import TimingApiClient, TimingApiError
 from timing_cli.config import Config, load_config
-from timing_cli.db import date_range, list_app_usage, list_projects, open_db
+from timing_cli.db import (
+    TimingDatabaseError,
+    date_range,
+    list_app_usage,
+    list_projects,
+    list_timing_predicate_rules,
+    open_db,
+)
+from timing_cli.models import TimeEntrySuggestion
 from timing_cli.output import console, err_console, render_suggestions, render_summary, render_usage
-from timing_cli.rules import Classifier
+from timing_cli.rules import UNASSIGNED, Classifier
 
 app = typer.Typer(
     name="timing",
@@ -48,12 +55,28 @@ def _resolve_window(
     Precedence: explicit --from/--to override --date; --date selects a whole
     local day; with nothing given, defaults to today.
     """
-    if from_opt or to_opt:
-        start = datetime.fromisoformat(from_opt).astimezone() if from_opt else _day_start(date.today())
-        end = datetime.fromisoformat(to_opt).astimezone() if to_opt else datetime.now().astimezone()
-        return start, end
-    day = date.fromisoformat(date_opt) if date_opt else date.today()
-    return _day_start(day), _day_start(day) + timedelta(days=1)
+    try:
+        if from_opt or to_opt:
+            start = (
+                datetime.fromisoformat(from_opt).astimezone()
+                if from_opt
+                else _day_start(date.today())
+            )
+            end = (
+                datetime.fromisoformat(to_opt).astimezone()
+                if to_opt
+                else datetime.now().astimezone()
+            )
+        else:
+            day = date.fromisoformat(date_opt) if date_opt else date.today()
+            start = _day_start(day)
+            end = start + timedelta(days=1)
+    except ValueError as exc:
+        raise typer.BadParameter("Use ISO-8601 dates, e.g. 2026-07-05") from exc
+
+    if end <= start:
+        raise typer.BadParameter("--to must be after --from")
+    return start, end
 
 
 def _day_start(day: date) -> datetime:
@@ -62,6 +85,11 @@ def _day_start(day: date) -> datetime:
 
 def _load() -> Config:
     return load_config()
+
+
+def _exit_with_error(message: str) -> None:
+    err_console.print(f"[red]{message}[/red]")
+    raise typer.Exit(1)
 
 
 DateOpt = typer.Option(None, "--date", "-d", help="Local day YYYY-MM-DD (default: today)")
@@ -74,11 +102,17 @@ def info() -> None:
     """Show the database location and the recorded activity date range."""
     cfg = _load()
     console.print(f"Database: [cyan]{cfg.db_path}[/cyan]")
-    with open_db(cfg.db_path) as conn:
-        rng = date_range(conn)
-        projects = list_projects(conn, include_archived=False)
+    try:
+        with open_db(cfg.db_path) as conn:
+            rng = date_range(conn)
+            projects = list_projects(conn, include_archived=False)
+    except TimingDatabaseError as exc:
+        _exit_with_error(str(exc))
     if rng:
-        console.print(f"Recorded: [green]{rng[0]:%Y-%m-%d}[/green] -> [green]{rng[1]:%Y-%m-%d}[/green]")
+        console.print(
+            f"Recorded: [green]{rng[0]:%Y-%m-%d}[/green] -> "
+            f"[green]{rng[1]:%Y-%m-%d}[/green]"
+        )
     console.print(f"Active projects: {len(projects)}")
     console.print(f"API token: {'set' if cfg.resolved_token() else '[yellow]not set[/yellow]'}")
 
@@ -100,32 +134,43 @@ def projects(
             err_console.print(f"[red]{exc}[/red]")
             raise typer.Exit(1) from exc
         return
-    with open_db(cfg.db_path) as conn:
-        for p in list_projects(conn, include_archived=archived):
-            marker = " [dim](archived)[/dim]" if p.is_archived else ""
-            console.print(f"[magenta]{p.id}[/magenta]  {p.title}{marker}")
+    try:
+        with open_db(cfg.db_path) as conn:
+            for p in list_projects(conn, include_archived=archived):
+                marker = " [dim](archived)[/dim]" if p.is_archived else ""
+                console.print(f"[magenta]{p.id}[/magenta]  {p.title}{marker}")
+    except TimingDatabaseError as exc:
+        _exit_with_error(str(exc))
 
 
 @app.command()
 def usage(
-    date_opt: Optional[str] = DateOpt,
-    from_opt: Optional[str] = FromOpt,
-    to_opt: Optional[str] = ToOpt,
-    project_id: Optional[int] = typer.Option(None, "--project", "-p", help="Filter by local project id"),
+    date_opt: str | None = DateOpt,
+    from_opt: str | None = FromOpt,
+    to_opt: str | None = ToOpt,
+    project_id: int | None = typer.Option(
+        None,
+        "--project",
+        "-p",
+        help="Filter by local project id",
+    ),
 ) -> None:
     """Show raw automatically tracked app usage for a window."""
     cfg = _load()
     start, end = _resolve_window(date_opt, from_opt, to_opt)
-    with open_db(cfg.db_path) as conn:
-        slices = list_app_usage(conn, start, end, project_id=project_id)
+    try:
+        with open_db(cfg.db_path) as conn:
+            slices = list_app_usage(conn, start, end, project_id=project_id)
+    except TimingDatabaseError as exc:
+        _exit_with_error(str(exc))
     render_usage(slices)
 
 
 @app.command()
 def summary(
-    date_opt: Optional[str] = DateOpt,
-    from_opt: Optional[str] = FromOpt,
-    to_opt: Optional[str] = ToOpt,
+    date_opt: str | None = DateOpt,
+    from_opt: str | None = FromOpt,
+    to_opt: str | None = ToOpt,
     include_unassigned: bool = typer.Option(
         True, "--unassigned/--no-unassigned", help="Include time not mapped to any project"
     ),
@@ -133,18 +178,22 @@ def summary(
     """Show total tracked time per project for a window."""
     cfg = _load()
     start, end = _resolve_window(date_opt, from_opt, to_opt)
-    classifier = Classifier(cfg.rules)
-    with open_db(cfg.db_path) as conn:
-        slices = list_app_usage(conn, start, end)
+    try:
+        with open_db(cfg.db_path) as conn:
+            slices = list_app_usage(conn, start, end)
+            timing_rules = list_timing_predicate_rules(conn)
+    except TimingDatabaseError as exc:
+        _exit_with_error(str(exc))
+    classifier = Classifier(cfg.rules, timing_rules=timing_rules)
     summaries = summarize_by_project(slices, classifier, include_unassigned=include_unassigned)
     render_summary(summaries, title=f"Project summary {start:%Y-%m-%d} .. {end:%Y-%m-%d}")
 
 
 @app.command()
 def suggest(
-    date_opt: Optional[str] = DateOpt,
-    from_opt: Optional[str] = FromOpt,
-    to_opt: Optional[str] = ToOpt,
+    date_opt: str | None = DateOpt,
+    from_opt: str | None = FromOpt,
+    to_opt: str | None = ToOpt,
     include_unassigned: bool = typer.Option(
         False, "--unassigned/--no-unassigned", help="Also suggest entries for unassigned time"
     ),
@@ -152,9 +201,13 @@ def suggest(
     """Show suggested time entries aggregated from app usage (does not write)."""
     cfg = _load()
     start, end = _resolve_window(date_opt, from_opt, to_opt)
-    classifier = Classifier(cfg.rules)
-    with open_db(cfg.db_path) as conn:
-        slices = list_app_usage(conn, start, end)
+    try:
+        with open_db(cfg.db_path) as conn:
+            slices = list_app_usage(conn, start, end)
+            timing_rules = list_timing_predicate_rules(conn)
+    except TimingDatabaseError as exc:
+        _exit_with_error(str(exc))
+    classifier = Classifier(cfg.rules, timing_rules=timing_rules)
     suggestions = aggregate(
         slices,
         classifier,
@@ -167,10 +220,15 @@ def suggest(
 
 @app.command()
 def push(
-    date_opt: Optional[str] = DateOpt,
-    from_opt: Optional[str] = FromOpt,
-    to_opt: Optional[str] = ToOpt,
-    yes: bool = typer.Option(False, "--yes", "-y", help="Actually create entries (default: dry-run)"),
+    date_opt: str | None = DateOpt,
+    from_opt: str | None = FromOpt,
+    to_opt: str | None = ToOpt,
+    yes: bool = typer.Option(
+        False,
+        "--yes",
+        "-y",
+        help="Actually create entries (default: dry-run)",
+    ),
     replace: bool = typer.Option(False, "--replace", help="Replace overlapping existing entries"),
     include_unassigned: bool = typer.Option(
         False, "--unassigned/--no-unassigned", help="Also push unassigned time"
@@ -178,15 +236,19 @@ def push(
 ) -> None:
     """Create Timing time entries from suggestions via the Web API.
 
-    Defaults to a dry-run. Pass --yes to actually create entries. Projects are
-    matched to the Web API by title; unmatched suggestions are still pushed but
-    without a project link.
+    Defaults to a dry-run. Pass --yes to actually create entries. Non-unassigned
+    projects must resolve to one unique Web-API project before anything is
+    written.
     """
     cfg = _load()
     start, end = _resolve_window(date_opt, from_opt, to_opt)
-    classifier = Classifier(cfg.rules)
-    with open_db(cfg.db_path) as conn:
-        slices = list_app_usage(conn, start, end)
+    try:
+        with open_db(cfg.db_path) as conn:
+            slices = list_app_usage(conn, start, end)
+            timing_rules = list_timing_predicate_rules(conn)
+    except TimingDatabaseError as exc:
+        _exit_with_error(str(exc))
+    classifier = Classifier(cfg.rules, timing_rules=timing_rules)
     suggestions = aggregate(
         slices,
         classifier,
@@ -208,21 +270,60 @@ def push(
 
     try:
         with TimingApiClient(cfg.api_base_url, cfg.resolved_token()) as client:
-            ref_cache: dict[str, str | None] = {}
-            created = 0
+            ref_cache: dict[tuple[int | None, tuple[str, ...], str], str | None] = {}
+            planned: list[tuple[TimeEntrySuggestion, str | None]] = []
+            unmapped: list[str] = []
+
             for s in suggestions:
-                if s.project_title not in ref_cache:
-                    ref_cache[s.project_title] = client.find_project_ref(s.project_title)
+                project_ref = None
+                if s.project_title != UNASSIGNED:
+                    key = (s.project_id, tuple(s.project_title_chain), s.project_title)
+                    if key not in ref_cache:
+                        ref_cache[key] = client.resolve_project_ref(
+                            s.project_title,
+                            title_chain=s.project_title_chain,
+                            project_id=s.project_id,
+                            overrides=cfg.project_mappings,
+                        )
+                    project_ref = ref_cache[key]
+                    if project_ref is None:
+                        label = " / ".join(s.project_title_chain) or s.project_title
+                        unmapped.append(label)
+                planned.append((s, project_ref))
+
+            if unmapped:
+                projects = ", ".join(sorted(set(unmapped)))
+                _exit_with_error(
+                    "Could not map local projects to Timing Web API projects: "
+                    f"{projects}. Add [project_mappings] entries or rename projects."
+                )
+
+            existing_entries = [] if replace else client.list_time_entries(start, end)
+            created = 0
+            skipped = 0
+            for s, project_ref in planned:
+                if not replace and client.has_matching_time_entry(
+                    existing_entries,
+                    s.start,
+                    s.end,
+                    s.title,
+                    project_ref,
+                ):
+                    skipped += 1
+                    continue
                 client.create_time_entry(
                     start=s.start,
                     end=s.end,
-                    project_ref=ref_cache[s.project_title],
+                    project_ref=project_ref,
                     title=s.title,
                     notes=s.notes,
                     replace_existing=replace,
                 )
                 created += 1
-            console.print(f"[green]Created {created} time entries.[/green]")
+            message = f"Created {created} time entries."
+            if skipped:
+                message += f" Skipped {skipped} existing entries."
+            console.print(f"[green]{message}[/green]")
     except TimingApiError as exc:
         err_console.print(f"[red]{exc}[/red]")
         raise typer.Exit(1) from exc
@@ -237,7 +338,10 @@ def serve(
     """Run the Timing MCP server so agents (e.g. Hermes) can query it."""
     from timing_cli.serve import run_server
 
-    run_server(transport=transport, host=host, port=port)
+    try:
+        run_server(transport=transport, host=host, port=port)
+    except ValueError as exc:
+        _exit_with_error(str(exc))
 
 
 if __name__ == "__main__":

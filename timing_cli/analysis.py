@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-from collections import Counter, defaultdict
-from datetime import datetime
+from collections import Counter
+from datetime import datetime, time, timedelta
 
 from timing_cli.models import AppUsage, ProjectSummary, TimeEntrySuggestion
 from timing_cli.rules import UNASSIGNED, Classification, Classifier
@@ -11,6 +11,21 @@ from timing_cli.rules import UNASSIGNED, Classification, Classifier
 
 def _local_day(dt: datetime) -> str:
     return dt.strftime("%Y-%m-%d")
+
+
+def _next_local_midnight(dt: datetime) -> datetime:
+    return datetime.combine(dt.date() + timedelta(days=1), time.min, tzinfo=dt.tzinfo)
+
+
+def _split_at_local_midnight(start: datetime, end: datetime) -> list[tuple[datetime, datetime]]:
+    pieces: list[tuple[datetime, datetime]] = []
+    current = start
+    while current < end:
+        next_midnight = _next_local_midnight(current)
+        piece_end = min(end, next_midnight)
+        pieces.append((current, piece_end))
+        current = piece_end
+    return pieces
 
 
 def summarize_by_project(
@@ -35,7 +50,6 @@ def summarize_by_project(
 
 
 def _build_entry(
-    day: str,
     classification: Classification,
     start: datetime,
     end: datetime,
@@ -49,11 +63,14 @@ def _build_entry(
         f"{app} ({count})" for app, count in app_counter.most_common(5)
     )
     return TimeEntrySuggestion(
-        day=day,
+        day=_local_day(start),
         start=start,
         end=end,
         project_id=classification.project_id,
         project_title=classification.project_title,
+        project_title_chain=list(
+            classification.project_title_chain or (classification.project_title,)
+        ),
         title=title,
         notes=notes,
         source_count=sum(app_counter.values()),
@@ -68,50 +85,77 @@ def aggregate(
     gap_merge_seconds: int = 300,
     include_unassigned: bool = False,
 ) -> list[TimeEntrySuggestion]:
-    """Merge consecutive same-project slices into time-entry suggestions.
+    """Merge chronological same-project slices into time-entry suggestions.
 
-    Slices are grouped per (local day, project). Within a group, slices are
-    merged into a block as long as the gap between one slice's end and the next
-    slice's start does not exceed ``gap_merge_seconds``. Blocks shorter than
-    ``min_block_seconds`` are dropped as noise.
+    Blocks are built in wall-clock order and never cross local-day boundaries.
+    Same-project slices are merged when no other included project appears
+    between them and the wall-clock gap does not exceed ``gap_merge_seconds``.
+    Skipped unassigned slices behave like idle gaps; different included projects
+    always break the current block. Overlapping included slices are clipped to
+    the already-consumed cursor so suggestions cannot overlap.
     """
-    # Group by (day, project) preserving chronological order.
-    groups: dict[tuple[str, int | None, str], list[tuple[AppUsage, Classification]]] = defaultdict(
-        list
-    )
-    for slice_ in sorted(usage, key=lambda u: u.start):
+    suggestions: list[TimeEntrySuggestion] = []
+    block_start: datetime | None = None
+    block_end: datetime | None = None
+    block_class: Classification | None = None
+    apps: Counter[str] = Counter()
+    cursor: datetime | None = None
+
+    def flush() -> None:
+        nonlocal block_start, block_end, block_class, apps
+        if block_start is None or block_end is None or block_class is None:
+            return
+        if (block_end - block_start).total_seconds() >= min_block_seconds:
+            suggestions.append(_build_entry(block_class, block_start, block_end, apps))
+        block_start = block_end = block_class = None
+        apps = Counter()
+
+    def start_block(
+        classification: Classification,
+        start: datetime,
+        end: datetime,
+        app: str,
+    ) -> None:
+        nonlocal block_start, block_end, block_class, apps
+        block_start = start
+        block_end = end
+        block_class = classification
+        apps = Counter({app: 1})
+
+    for slice_ in sorted(usage, key=lambda u: (u.start, u.end, u.id)):
+        if slice_.end <= slice_.start:
+            continue
+
         c = classifier.classify(slice_)
         if not include_unassigned and c.project_title == UNASSIGNED:
             continue
-        groups[(_local_day(slice_.start), c.project_id, c.project_title)].append((slice_, c))
 
-    suggestions: list[TimeEntrySuggestion] = []
-    for (day, _pid, _ptitle), items in groups.items():
-        block_start: datetime | None = None
-        block_end: datetime | None = None
-        block_class: Classification | None = None
-        apps: Counter[str] = Counter()
+        for segment_start, segment_end in _split_at_local_midnight(slice_.start, slice_.end):
+            if cursor is not None and segment_start < cursor:
+                segment_start = cursor
+            if segment_end <= segment_start:
+                continue
+            cursor = segment_end
 
-        def flush() -> None:
-            nonlocal block_start, block_end, block_class, apps
-            if block_start is None or block_end is None or block_class is None:
-                return
-            if (block_end - block_start).total_seconds() >= min_block_seconds:
-                suggestions.append(
-                    _build_entry(day, block_class, block_start, block_end, apps)
-                )
-            block_start = block_end = block_class = None
-            apps = Counter()
+            if block_class is None or block_end is None or block_start is None:
+                start_block(c, segment_start, segment_end, slice_.app)
+                continue
 
-        for slice_, c in items:
-            if block_end is not None and (slice_.start - block_end).total_seconds() > gap_merge_seconds:
+            same_project = (block_class.project_id, block_class.project_title) == (
+                c.project_id,
+                c.project_title,
+            )
+            same_day = _local_day(block_start) == _local_day(segment_start)
+            gap_seconds = (segment_start - block_end).total_seconds()
+            if not same_project or not same_day or gap_seconds > gap_merge_seconds:
                 flush()
-            if block_start is None:
-                block_start = slice_.start
-                block_class = c
-            block_end = max(block_end, slice_.end) if block_end else slice_.end
+                start_block(c, segment_start, segment_end, slice_.app)
+                continue
+
+            block_end = max(block_end, segment_end)
             apps[slice_.app] += 1
-        flush()
+
+    flush()
 
     suggestions.sort(key=lambda s: s.start)
     return suggestions

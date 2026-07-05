@@ -9,18 +9,44 @@ Run it via ``timing serve`` (stdio by default, or ``--transport http``).
 
 from __future__ import annotations
 
+import secrets
 from datetime import date, datetime, time, timedelta
 from typing import Any
 
 from fastmcp import FastMCP
+from fastmcp.server.auth import AccessToken, TokenVerifier
 
 from timing_cli.analysis import aggregate, summarize_by_project
 from timing_cli.api import TimingApiClient, TimingApiError
 from timing_cli.config import load_config
-from timing_cli.db import date_range, list_app_usage, list_projects, open_db
+from timing_cli.db import (
+    date_range,
+    list_app_usage,
+    list_projects,
+    list_timing_predicate_rules,
+    open_db,
+)
 from timing_cli.rules import Classifier
 
 mcp: FastMCP = FastMCP("timing-cli")
+
+
+class StaticBearerTokenVerifier(TokenVerifier):
+    """Validate MCP HTTP requests against one configured bearer token."""
+
+    def __init__(self, token: str) -> None:
+        super().__init__()
+        self._token = token
+
+    async def verify_token(self, token: str) -> AccessToken | None:
+        if not secrets.compare_digest(token, self._token):
+            return None
+        return AccessToken(
+            token=token,
+            client_id="timing-cli-local",
+            scopes=[],
+            expires_at=None,
+        )
 
 
 def _day_window(day: str | None) -> tuple[datetime, datetime]:
@@ -66,13 +92,17 @@ def list_app_usage_tool(
 
 
 @mcp.tool
-def daily_project_summary(day: str | None = None, include_unassigned: bool = True) -> list[dict[str, Any]]:
+def daily_project_summary(
+    day: str | None = None,
+    include_unassigned: bool = True,
+) -> list[dict[str, Any]]:
     """Total tracked time per project for a local day (defaults to today)."""
     cfg = load_config()
     lo, hi = _day_window(day)
-    classifier = Classifier(cfg.rules)
     with open_db(cfg.db_path) as conn:
         slices = list_app_usage(conn, lo, hi)
+        timing_rules = list_timing_predicate_rules(conn)
+    classifier = Classifier(cfg.rules, timing_rules=timing_rules)
     summaries = summarize_by_project(slices, classifier, include_unassigned=include_unassigned)
     return [s.model_dump() for s in summaries]
 
@@ -87,9 +117,10 @@ def suggest_time_entries(
     """Aggregate app usage into suggested time entries. Read-only (does not write)."""
     cfg = load_config()
     lo, hi = _window(day, start, end)
-    classifier = Classifier(cfg.rules)
     with open_db(cfg.db_path) as conn:
         slices = list_app_usage(conn, lo, hi)
+        timing_rules = list_timing_predicate_rules(conn)
+    classifier = Classifier(cfg.rules, timing_rules=timing_rules)
     suggestions = aggregate(
         slices,
         classifier,
@@ -112,15 +143,25 @@ def create_time_entry(
     """Create a single time entry via the Timing Web API (write operation).
 
     ``start``/``end`` are ISO-8601 datetimes. When ``project_title`` is given it
-    is matched against Web-API projects by title; if unmatched the entry is
-    created without a project link.
+    must resolve to one unique Web-API project, optionally through
+    ``project_mappings`` in the config.
     """
-    cfg = load_config()
-    lo = datetime.fromisoformat(start).astimezone()
-    hi = datetime.fromisoformat(end).astimezone()
     try:
+        cfg = load_config()
+        lo = datetime.fromisoformat(start).astimezone()
+        hi = datetime.fromisoformat(end).astimezone()
+        if hi <= lo:
+            return {"error": "end must be after start"}
         with TimingApiClient(cfg.api_base_url, cfg.resolved_token()) as client:
-            project_ref = client.find_project_ref(project_title) if project_title else None
+            project_ref = None
+            if project_title:
+                project_ref = client.resolve_project_ref(
+                    project_title,
+                    title_chain=[project_title],
+                    overrides=cfg.project_mappings,
+                )
+                if project_ref is None:
+                    return {"error": f"Could not map Timing project '{project_title}'"}
             return client.create_time_entry(
                 start=lo,
                 end=hi,
@@ -129,7 +170,7 @@ def create_time_entry(
                 notes=notes,
                 replace_existing=replace_existing,
             )
-    except TimingApiError as exc:
+    except (TimingApiError, ValueError) as exc:
         return {"error": str(exc)}
 
 
@@ -147,10 +188,18 @@ def recorded_date_range() -> dict[str, str] | None:
 def run_server(transport: str = "stdio", host: str = "127.0.0.1", port: int = 8321) -> None:
     """Start the MCP server over the requested transport."""
     if transport == "stdio":
+        mcp.auth = None
         mcp.run()
     elif transport in ("http", "streamable-http"):
+        cfg = load_config()
+        token = cfg.resolved_mcp_http_token()
+        if not token:
+            raise ValueError(
+                "HTTP transport requires TIMING_MCP_TOKEN or mcp_http_token in the config"
+            )
+        mcp.auth = StaticBearerTokenVerifier(token)
         mcp.run(transport="http", host=host, port=port)
-    else:  # pragma: no cover - guarded by CLI
+    else:
         raise ValueError(f"Unknown transport: {transport}")
 
 

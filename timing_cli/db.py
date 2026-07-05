@@ -24,6 +24,7 @@ from datetime import datetime
 from pathlib import Path
 
 from timing_cli.models import AppUsage, Project
+from timing_cli.timing_predicates import TimingPredicateRule, decode_timing_predicate
 
 
 class TimingDatabaseError(RuntimeError):
@@ -61,15 +62,20 @@ def open_db(db_path: Path) -> Iterator[sqlite3.Connection]:
 
 def list_projects(conn: sqlite3.Connection, include_archived: bool = True) -> list[Project]:
     """Return all local projects, ordered by hierarchy position."""
-    where = "" if include_archived else "WHERE isArchived = 0"
-    rows = conn.execute(
-        f"""
+    if include_archived:
+        query = """
         SELECT id, title, parentID, isArchived, color, productivityScore
         FROM Project
-        {where}
         ORDER BY parentID IS NOT NULL, listPosition
         """
-    ).fetchall()
+    else:
+        query = """
+        SELECT id, title, parentID, isArchived, color, productivityScore
+        FROM Project
+        WHERE isArchived = 0
+        ORDER BY parentID IS NOT NULL, listPosition
+        """
+    rows = conn.execute(query).fetchall()
     return [
         Project(
             id=r["id"],
@@ -83,6 +89,52 @@ def list_projects(conn: sqlite3.Connection, include_archived: bool = True) -> li
     ]
 
 
+def _project_title_chains(
+    conn: sqlite3.Connection,
+    project_ids: set[int],
+) -> dict[int, list[str]]:
+    """Return local project title chains keyed by local project id."""
+    projects: dict[int, tuple[str, int | None]] = {}
+
+    def fetch(project_id: int) -> tuple[str, int | None] | None:
+        if project_id in projects:
+            return projects[project_id]
+
+        row = conn.execute(
+            "SELECT title, parentID FROM Project WHERE id = ?",
+            (project_id,),
+        ).fetchone()
+        if row is None:
+            return None
+        project = (row["title"], row["parentID"])
+        projects[project_id] = project
+        return project
+
+    chains: dict[int, list[str]] = {}
+
+    def build(project_id: int) -> list[str]:
+        if project_id in chains:
+            return chains[project_id]
+
+        seen: set[int] = set()
+        chain: list[str] = []
+        current: int | None = project_id
+        while current is not None and current not in seen:
+            seen.add(current)
+            project = fetch(current)
+            if project is None:
+                break
+            title, parent_id = project
+            chain.append(title)
+            current = parent_id
+
+        chain.reverse()
+        chains[project_id] = chain
+        return chain
+
+    return {project_id: build(project_id) for project_id in project_ids}
+
+
 def list_app_usage(
     conn: sqlite3.Connection,
     start: datetime,
@@ -94,18 +146,17 @@ def list_app_usage(
     A slice is included when it overlaps the window at all (its start is before
     ``end`` and its end is after ``start``).
     """
-    params: list[float | int] = [end.timestamp(), start.timestamp()]
-    project_filter = ""
-    if project_id is not None:
-        project_filter = "AND a.projectID = ?"
-        params.append(project_id)
+    if end <= start:
+        return []
 
-    rows = conn.execute(
-        f"""
+    params: list[float | int] = [end.timestamp(), start.timestamp()]
+    if project_id is None:
+        query = """
         SELECT
             a.id            AS id,
             a.startDate     AS start_ts,
             a.endDate       AS end_ts,
+            a.applicationID  AS application_id,
             a.projectID     AS project_id,
             p.title         AS project_title,
             app.title       AS app_title,
@@ -121,29 +172,109 @@ def list_app_usage(
         WHERE a.isDeleted = 0
           AND a.startDate < ?
           AND a.endDate   > ?
-          {project_filter}
         ORDER BY a.startDate
-        """,
-        params,
-    ).fetchall()
+        """
+    else:
+        query = """
+        SELECT
+            a.id            AS id,
+            a.startDate     AS start_ts,
+            a.endDate       AS end_ts,
+            a.applicationID  AS application_id,
+            a.projectID     AS project_id,
+            p.title         AS project_title,
+            app.title       AS app_title,
+            app.bundleIdentifier AS bundle_id,
+            app.executable  AS executable,
+            t.stringValue   AS window_title,
+            pa.stringValue  AS doc_path
+        FROM AppActivity a
+        JOIN Application app ON app.id = a.applicationID
+        LEFT JOIN Title   t  ON t.id  = a.titleID
+        LEFT JOIN Path    pa ON pa.id = a.pathID
+        LEFT JOIN Project p  ON p.id  = a.projectID
+        WHERE a.isDeleted = 0
+          AND a.startDate < ?
+          AND a.endDate   > ?
+          AND a.projectID = ?
+        ORDER BY a.startDate
+        """
+        params.append(project_id)
 
+    rows = conn.execute(query, params).fetchall()
+
+    project_ids = {r["project_id"] for r in rows if r["project_id"] is not None}
+    title_chains = _project_title_chains(conn, project_ids)
     usage: list[AppUsage] = []
     for r in rows:
         app_name = r["app_title"] or r["bundle_id"] or r["executable"] or "Unknown"
+        clipped_start = max(_epoch_to_local(r["start_ts"]), start)
+        clipped_end = min(_epoch_to_local(r["end_ts"]), end)
+        if clipped_end <= clipped_start:
+            continue
+        project_title_chain = title_chains.get(r["project_id"], [])
+        project_title = r["project_title"]
+        if project_title and not project_title_chain:
+            project_title_chain = [project_title]
         usage.append(
             AppUsage(
                 id=r["id"],
-                start=_epoch_to_local(r["start_ts"]),
-                end=_epoch_to_local(r["end_ts"]),
+                start=clipped_start,
+                end=clipped_end,
+                application_id=r["application_id"],
                 app=app_name,
                 bundle_id=r["bundle_id"],
                 title=r["window_title"],
                 path=r["doc_path"],
                 project_id=r["project_id"],
-                project_title=r["project_title"],
+                project_title=project_title,
+                project_title_chain=project_title_chain,
             )
         )
     return usage
+
+
+def list_timing_predicate_rules(
+    conn: sqlite3.Connection,
+    include_archived: bool = False,
+) -> list[TimingPredicateRule]:
+    """Return decoded Timing project predicate rules from the local database."""
+    project_columns = {r["name"] for r in conn.execute("PRAGMA table_info(Project)")}
+    if "predicate" not in project_columns:
+        return []
+
+    if include_archived:
+        query = """
+        SELECT id, title, predicate
+        FROM Project
+        WHERE predicate IS NOT NULL
+        ORDER BY ruleListPosition, listPosition
+        """
+    else:
+        query = """
+        SELECT id, title, predicate
+        FROM Project
+        WHERE predicate IS NOT NULL AND isArchived = 0
+        ORDER BY ruleListPosition, listPosition
+        """
+
+    rows = conn.execute(query).fetchall()
+    title_chains = _project_title_chains(conn, {r["id"] for r in rows})
+    rules: list[TimingPredicateRule] = []
+    for row in rows:
+        conditions = decode_timing_predicate(row["predicate"])
+        if not conditions:
+            continue
+        title_chain = tuple(title_chains.get(row["id"], [row["title"]]))
+        rules.append(
+            TimingPredicateRule(
+                project_id=row["id"],
+                project_title=row["title"],
+                project_title_chain=title_chain,
+                conditions=conditions,
+            )
+        )
+    return rules
 
 
 def date_range(conn: sqlite3.Connection) -> tuple[datetime, datetime] | None:

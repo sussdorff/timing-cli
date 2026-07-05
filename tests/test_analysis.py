@@ -70,3 +70,106 @@ def test_aggregate_splits_on_large_gap():
     ]
     entries = aggregate(slices, classifier, min_block_seconds=120, gap_merge_seconds=300)
     assert len(entries) == 2
+
+
+def test_aggregate_does_not_overlap_interleaved_projects():
+    classifier = Classifier([])
+    slices = [
+        _slice(0, 10, "Xcode", project=(1, "X")),
+        _slice(10, 3, "Safari", project=(2, "Y")),
+        _slice(13, 10, "Xcode", project=(1, "X")),
+    ]
+
+    entries = aggregate(
+        slices,
+        classifier,
+        min_block_seconds=0,
+        gap_merge_seconds=300,
+        include_unassigned=True,
+    )
+
+    assert [(e.project_title, e.start, e.end) for e in entries] == [
+        ("X", BASE, BASE + timedelta(minutes=10)),
+        ("Y", BASE + timedelta(minutes=10), BASE + timedelta(minutes=13)),
+        ("X", BASE + timedelta(minutes=13), BASE + timedelta(minutes=23)),
+    ]
+    assert sum(e.duration_seconds for e in entries) == 23 * 60
+
+
+def test_long_skipped_unassigned_gap_breaks_aggregation():
+    classifier = Classifier([Rule(project="Work", app="Xcode")])
+    slices = [
+        _slice(0, 10, "Xcode"),
+        _slice(10, 10, "Safari"),
+        _slice(20, 8, "Xcode"),
+    ]
+
+    entries = aggregate(slices, classifier, min_block_seconds=0, gap_merge_seconds=300)
+
+    assert len(entries) == 2
+    assert entries[0].start == BASE
+    assert entries[0].end == BASE + timedelta(minutes=10)
+    assert entries[1].start == BASE + timedelta(minutes=20)
+    assert entries[1].end == BASE + timedelta(minutes=28)
+
+
+def test_aggregate_splits_blocks_at_local_midnight():
+    classifier = Classifier([])
+    start = datetime(2026, 7, 5, 23, 50, 0).astimezone()
+    midnight = datetime(2026, 7, 6, 0, 0, 0).astimezone()
+    end = datetime(2026, 7, 6, 0, 20, 0).astimezone()
+    slices = [
+        AppUsage(
+            id=1,
+            start=start,
+            end=end,
+            app="Xcode",
+            project_id=1,
+            project_title="Work",
+        )
+    ]
+
+    entries = aggregate(
+        slices,
+        classifier,
+        min_block_seconds=0,
+        gap_merge_seconds=300,
+    )
+
+    assert [(entry.day, entry.start, entry.end) for entry in entries] == [
+        ("2026-07-05", start, midnight),
+        ("2026-07-06", midnight, end),
+    ]
+
+
+def test_skipped_overlapping_unassigned_slice_does_not_clip_assigned_time():
+    classifier = Classifier([])
+    assigned_start = BASE + timedelta(minutes=60)
+    assigned_end = BASE + timedelta(minutes=90)
+    slices = [
+        AppUsage(
+            id=1,
+            start=BASE,
+            end=BASE + timedelta(minutes=120),
+            app="Safari",
+        ),
+        AppUsage(
+            id=2,
+            start=assigned_start,
+            end=assigned_end,
+            app="Xcode",
+            project_id=1,
+            project_title="Work",
+        ),
+    ]
+
+    entries = aggregate(
+        slices,
+        classifier,
+        min_block_seconds=0,
+        gap_merge_seconds=300,
+    )
+
+    assert len(entries) == 1
+    assert entries[0].start == assigned_start
+    assert entries[0].end == assigned_end

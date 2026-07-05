@@ -24,7 +24,7 @@ class Project(BaseModel):
         NOTE: the local database ``id`` and the Web-API project id are NOT the
         same namespace. This helper only builds the API path shape; callers that
         push to the API must map local titles to remote project ids first (see
-        ``timing_cli.api.TimingApiClient.resolve_project``).
+        ``timing_cli.api.TimingApiClient.resolve_project_ref``).
         """
         return f"/projects/{self.id}"
 
@@ -35,12 +35,14 @@ class AppUsage(BaseModel):
     id: int
     start: datetime
     end: datetime
+    application_id: int | None = None
     app: str = Field(description="Human-readable app name or bundle identifier")
     bundle_id: str | None = None
     title: str | None = Field(default=None, description="Window title")
     path: str | None = Field(default=None, description="Document / file path")
     project_id: int | None = Field(default=None, description="Local Timing project id, if assigned")
     project_title: str | None = None
+    project_title_chain: list[str] = Field(default_factory=list)
 
     @property
     def duration_seconds(self) -> float:
@@ -55,6 +57,7 @@ class TimeEntrySuggestion(BaseModel):
     end: datetime
     project_id: int | None = None
     project_title: str = "Unassigned"
+    project_title_chain: list[str] = Field(default_factory=list)
     title: str = ""
     notes: str = ""
     source_count: int = 0

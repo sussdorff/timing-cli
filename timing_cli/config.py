@@ -48,6 +48,7 @@ class Config(BaseModel):
     db_path: Path = DEFAULT_DB_PATH
     api_base_url: str = DEFAULT_API_BASE_URL
     api_token: str | None = None
+    mcp_http_token: str | None = None
 
     # Aggregation tuning (see analysis.aggregate).
     min_block_seconds: int = Field(
@@ -60,10 +61,15 @@ class Config(BaseModel):
     )
 
     rules: list[Rule] = Field(default_factory=list)
+    project_mappings: dict[str, str] = Field(default_factory=dict)
 
     def resolved_token(self) -> str | None:
         """Return the API token, preferring the environment variable."""
         return os.environ.get("TIMING_API_KEY") or self.api_token
+
+    def resolved_mcp_http_token(self) -> str | None:
+        """Return the MCP HTTP bearer token, preferring the environment variable."""
+        return os.environ.get("TIMING_MCP_TOKEN") or self.mcp_http_token
 
 
 def load_config(path: Path | None = None) -> Config:

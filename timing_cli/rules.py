@@ -18,6 +18,7 @@ from dataclasses import dataclass
 
 from timing_cli.config import Rule
 from timing_cli.models import AppUsage
+from timing_cli.timing_predicates import TimingPredicateRule
 
 
 @dataclass(frozen=True)
@@ -27,6 +28,7 @@ class Classification:
     project_title: str
     project_id: int | None
     source: str  # "timing" | "rule" | "unassigned"
+    project_title_chain: tuple[str, ...] = ()
 
 
 UNASSIGNED = "Unassigned"
@@ -55,20 +57,45 @@ class _CompiledRule:
 
 
 class Classifier:
-    """Applies a list of rules, preferring Timing's own assignment."""
+    """Apply project classification rules.
 
-    def __init__(self, rules: list[Rule]) -> None:
+    Order is deliberate: already-assigned Timing slices win, then explicit user
+    config rules, then decoded Timing project predicate rules, then Unassigned.
+    """
+
+    def __init__(
+        self,
+        rules: list[Rule],
+        timing_rules: list[TimingPredicateRule] | None = None,
+    ) -> None:
         self._compiled = [_CompiledRule(r) for r in rules]
+        self._timing_rules = timing_rules or []
 
     def classify(self, usage: AppUsage) -> Classification:
         # 1. Trust Timing's own project assignment when present.
         if usage.project_id is not None and usage.project_title:
-            return Classification(usage.project_title, usage.project_id, "timing")
+            chain = tuple(usage.project_title_chain or [usage.project_title])
+            return Classification(usage.project_title, usage.project_id, "timing", chain)
 
         # 2. First matching user rule wins.
         for compiled in self._compiled:
             if compiled.matches(usage):
-                return Classification(compiled.rule.project, None, "rule")
+                return Classification(
+                    compiled.rule.project,
+                    None,
+                    "rule",
+                    (compiled.rule.project,),
+                )
 
-        # 3. Fall back to unassigned.
-        return Classification(UNASSIGNED, None, "unassigned")
+        # 3. Reuse Timing's own project predicate rules from the local DB.
+        for timing_rule in self._timing_rules:
+            if timing_rule.matches(usage):
+                return Classification(
+                    timing_rule.project_title,
+                    timing_rule.project_id,
+                    "timing_predicate",
+                    timing_rule.project_title_chain,
+                )
+
+        # 4. Fall back to unassigned.
+        return Classification(UNASSIGNED, None, "unassigned", (UNASSIGNED,))
