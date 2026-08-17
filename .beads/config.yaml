@@ -65,7 +65,7 @@ issue-prefix: timing
 # - linear.api_key  → use LINEAR_API_KEY env var instead
 # - github.token    → use GITHUB_TOKEN env var instead
 
-dolt.shared-server: true
+dolt.shared-server: false
 
 no-auto-import: true
 import.auto: false
