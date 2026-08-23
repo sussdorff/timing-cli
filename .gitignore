@@ -384,8 +384,6 @@ uv.lock
 /.agents/standards/writing/doc-modes.md
 /.claude/agents/focus-review-agent.md
 /.codex/agents/focus-review-agent.toml
-/.claude/agents/focus-review-agent-handlers
-/.codex/agents/focus-review-agent-handlers
 /.claude/agents/uat-validator.md
 /.codex/agents/uat-validator.toml
 /.agents/standards/review-governance
