@@ -154,6 +154,7 @@ def usage(
         "-p",
         help="Filter by local project id",
     ),
+    show_path: bool = typer.Option(False, "--show-path", help="Show document and file paths"),
 ) -> None:
     """Show raw automatically tracked app usage for a window."""
     cfg = _load()
@@ -163,7 +164,7 @@ def usage(
             slices = list_app_usage(conn, start, end, project_id=project_id)
     except TimingDatabaseError as exc:
         _exit_with_error(str(exc))
-    render_usage(slices)
+    render_usage(slices, show_path=show_path)
 
 
 @app.command()

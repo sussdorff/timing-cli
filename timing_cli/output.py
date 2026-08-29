@@ -22,21 +22,26 @@ def _fmt_duration(seconds: float) -> str:
     return f"{secs}s"
 
 
-def render_usage(usage: list[AppUsage]) -> None:
+def render_usage(usage: list[AppUsage], *, show_path: bool = False) -> None:
     table = Table(title="App usage", show_lines=False)
     table.add_column("Start", style="cyan", no_wrap=True)
     table.add_column("Dur", justify="right")
     table.add_column("App", style="green")
     table.add_column("Title")
+    if show_path:
+        table.add_column("Path", overflow="fold")
     table.add_column("Project", style="magenta")
     for u in usage:
-        table.add_row(
+        row = [
             u.start.strftime("%H:%M:%S"),
             _fmt_duration(u.duration_seconds),
             u.app,
             (u.title or "")[:50],
-            u.project_title or "",
-        )
+        ]
+        if show_path:
+            row.append(u.path or "")
+        row.append(u.project_title or "")
+        table.add_row(*row)
     console.print(table)
 
 
