@@ -27,3 +27,18 @@ agentic_acceptance:
           - [--no-color, suggest]
           - [--no-color, reconstruct]
         cwd: "."
+    - id: timing-cli-verification
+      type: artifact
+      provenance:
+        kind: candidate_projection
+        identity: timing-cli-verification
+        digest_env: TIMING_CLI_VERIFICATION_SHA256
+      credentials:
+        mode: none
+        references: []
+      boundaries:
+        roots:
+          - evidence
+          - README.md
+          - CHANGELOG.md
+        read_only: true
