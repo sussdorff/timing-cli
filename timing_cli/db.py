@@ -435,6 +435,28 @@ def _reconstruction_records_from_rows(
     return records
 
 
+def _count_reconstruction_sources(
+    conn: sqlite3.Connection,
+    start: datetime,
+    end: datetime,
+) -> int:
+    """Count matching source rows in SQL within the caller's read snapshot."""
+    window_params = (end.timestamp(), start.timestamp())
+    row = conn.execute(
+        """
+        SELECT
+            (SELECT COUNT(*) FROM TaskActivity
+             WHERE isDeleted = 0 AND isRunning = 0
+               AND startDate < ? AND endDate > ?)
+          + (SELECT COUNT(*) FROM AppActivity
+             WHERE isDeleted = 0
+               AND startDate < ? AND endDate > ?) AS total_count
+        """,
+        (*window_params, *window_params),
+    ).fetchone()
+    return int(row["total_count"])
+
+
 def reconstruction_snapshot(
     conn: sqlite3.Connection,
     start: datetime,
@@ -449,8 +471,8 @@ def reconstruction_snapshot(
             separators=(",", ":"),
         ).encode()
     )
+    total_count = _count_reconstruction_sources(conn, start, end)
     cursor_key = None
-    total_count = 0
     while True:
         rows = _fetch_reconstruction_rows(
             conn,
@@ -472,7 +494,6 @@ def reconstruction_snapshot(
             ).encode()
             digest.update(len(canonical).to_bytes(8, "big"))
             digest.update(canonical)
-        total_count += len(rows)
         if len(rows) < MAX_RECONSTRUCTION_PAGE_SIZE:
             break
         last = rows[-1]
