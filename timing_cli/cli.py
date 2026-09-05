@@ -25,6 +25,7 @@ from timing_cli.db import (
     list_projects,
     list_timing_predicate_rules,
     open_db,
+    reconstruction_read_transaction,
 )
 from timing_cli.models import MAX_RECONSTRUCTION_PAGE_SIZE, TimeEntrySuggestion
 from timing_cli.output import (
@@ -433,21 +434,22 @@ def reconstruct(
     cfg = _load()
     try:
         with open_db(cfg.db_path) as conn:
-            timing_rules = list_timing_predicate_rules(conn)
-            classifier = Classifier(
-                cfg.rules,
-                timing_rules=timing_rules,
-                user_rule_count=cfg.user_rule_count,
-            )
-            response = reconstruct_window(
-                conn,
-                start,
-                end,
-                classifier,
-                limit=limit,
-                cursor=cursor,
-                timezone_name=os.environ.get("TZ") or str(start.tzinfo),
-            )
+            with reconstruction_read_transaction(conn):
+                timing_rules = list_timing_predicate_rules(conn)
+                classifier = Classifier(
+                    cfg.rules,
+                    timing_rules=timing_rules,
+                    user_rule_count=cfg.user_rule_count,
+                )
+                response = reconstruct_window(
+                    conn,
+                    start,
+                    end,
+                    classifier,
+                    limit=limit,
+                    cursor=cursor,
+                    timezone_name=os.environ.get("TZ") or str(start.tzinfo),
+                )
     except (TimingDatabaseError, ValueError) as exc:
         _exit_with_error(str(exc))
 

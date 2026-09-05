@@ -36,6 +36,7 @@ from timing_cli.db import (
     list_projects,
     list_timing_predicate_rules,
     open_db,
+    reconstruction_read_transaction,
 )
 from timing_cli.rules import Classifier
 
@@ -166,21 +167,22 @@ def reconstruct_work(
     lo, hi = resolve_reconstruction_query_window(month, start, end)
     cfg = load_config()
     with open_db(cfg.db_path) as conn:
-        timing_rules = list_timing_predicate_rules(conn)
-        classifier = Classifier(
-            cfg.rules,
-            timing_rules=timing_rules,
-            user_rule_count=cfg.user_rule_count,
-        )
-        response = reconstruct_window(
-            conn,
-            lo,
-            hi,
-            classifier,
-            limit=limit,
-            cursor=cursor,
-            timezone_name=os.environ.get("TZ") or str(lo.tzinfo),
-        )
+        with reconstruction_read_transaction(conn):
+            timing_rules = list_timing_predicate_rules(conn)
+            classifier = Classifier(
+                cfg.rules,
+                timing_rules=timing_rules,
+                user_rule_count=cfg.user_rule_count,
+            )
+            response = reconstruct_window(
+                conn,
+                lo,
+                hi,
+                classifier,
+                limit=limit,
+                cursor=cursor,
+                timezone_name=os.environ.get("TZ") or str(lo.tzinfo),
+            )
     return response.model_dump(mode="json")
 
 

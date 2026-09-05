@@ -3,7 +3,7 @@ from __future__ import annotations
 import os
 import plistlib
 import time as time_module
-from contextlib import contextmanager
+from contextlib import contextmanager, nullcontext
 from datetime import datetime, timedelta, timezone
 from unittest.mock import MagicMock, patch
 
@@ -179,6 +179,7 @@ def test_reconstruct_mcp_emits_shared_versioned_schema_and_forwards_continuation
 
     monkeypatch.setattr(serve, "load_config", lambda: Config(db_path=tmp_path / "Timing.db"))
     monkeypatch.setattr(serve, "open_db", fake_open_db)
+    monkeypatch.setattr(serve, "reconstruction_read_transaction", lambda conn: nullcontext())
     monkeypatch.setattr(serve, "list_timing_predicate_rules", lambda conn: [])
     monkeypatch.setattr(serve, "reconstruct_window", fake_reconstruct, raising=False)
 

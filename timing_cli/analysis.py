@@ -24,7 +24,7 @@ from timing_cli.models import (
     ReconstructionWindow,
     TimeEntrySuggestion,
 )
-from timing_cli.rules import UNASSIGNED, Classification, Classifier
+from timing_cli.rules import UNASSIGNED, Classification, Classifier, assignments_equivalent
 
 
 def _local_day(dt: datetime) -> str:
@@ -251,13 +251,6 @@ def _overlap(left: ReconstructionSource, right: ReconstructionSource) -> bool:
     return left.start < right.end and right.start < left.end
 
 
-def _assignment_key(explanation: AssignmentExplanation) -> tuple[int | None, str] | None:
-    selected = explanation.selected_assignment
-    if selected is None:
-        return None
-    return selected.project_id, selected.project_title
-
-
 @dataclass
 class _RecordAnalysisState:
     source: ReconstructionSource
@@ -407,7 +400,7 @@ def reconstruct_evidence(
             _source_as_usage(other),
             source_reference=other_reference,
         )
-        other_key = _assignment_key(other_assignment)
+        other_selected = other_assignment.selected_assignment
         for reference, state in states.items():
             if reference == other_reference or not _overlap(state.source, other):
                 continue
@@ -425,8 +418,12 @@ def reconstruct_evidence(
                 )
                 state.cover_with(other)
 
-            state_key = _assignment_key(state.assignment)
-            if state_key is not None and other_key is not None and state_key != other_key:
+            state_selected = state.assignment.selected_assignment
+            if (
+                state_selected is not None
+                and other_selected is not None
+                and not assignments_equivalent(state_selected, other_selected)
+            ):
                 state.add_reference(
                     state.conflicts,
                     other_reference,
@@ -471,14 +468,28 @@ def reconstruct_window(
     if end <= start:
         raise ValueError("reconstruction window end must be after start")
 
-    from timing_cli.db import iter_reconstruction_sources, list_reconstruction_sources
-
-    page = list_reconstruction_sources(conn, start, end, limit=limit, cursor=cursor)
-    evidence = reconstruct_evidence(
-        page.records,
-        iter_reconstruction_sources(conn, start, end),
-        classifier,
+    from timing_cli.db import (
+        iter_reconstruction_sources,
+        list_reconstruction_sources,
+        reconstruction_read_transaction,
+        reconstruction_snapshot,
     )
+
+    with reconstruction_read_transaction(conn):
+        snapshot = reconstruction_snapshot(conn, start, end)
+        page = list_reconstruction_sources(
+            conn,
+            start,
+            end,
+            limit=limit,
+            cursor=cursor,
+            snapshot=snapshot,
+        )
+        evidence = reconstruct_evidence(
+            page.records,
+            iter_reconstruction_sources(conn, start, end, snapshot=snapshot),
+            classifier,
+        )
     return ReconstructionResponse(
         window=ReconstructionWindow(
             timezone=timezone_name or str(start.tzinfo),

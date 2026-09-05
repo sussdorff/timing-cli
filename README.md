@@ -136,8 +136,10 @@ The top-level fields are:
 The maximum page size is 200. Continue with the returned cursor until
 `pagination.complete` is true; this retrieves every source record in the month
 without materializing the month as one list. Source rows use SQL keyset paging,
-and whole-window calculations scan those rows in bounded batches. Relationship
-lists on a record are also capped at 200 and carry their own `*_complete` flag,
+and whole-window calculations scan those rows in bounded batches. A cursor is
+bound to a digest of its source-window snapshot; if local Timing data changes,
+the continuation fails as stale and must be restarted from the first page.
+Relationship lists on a record are also capped at 200 and carry their own `*_complete` flag,
 so dense evidence is never silently presented as complete. Stable source
 references have the form `booking:<decimal-id>` or `activity:<decimal-id>`.
 Ordering uses the clipped `source.start`, then bookings before activities, then

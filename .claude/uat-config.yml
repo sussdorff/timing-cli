@@ -1,0 +1,21 @@
+agentic_acceptance:
+  resources:
+    - id: timing-cli
+      type: cli
+      provenance:
+        kind: candidate_projection
+        identity: timing-cli
+        digest_env: TIMING_CLI_CANDIDATE_SHA256
+      credentials:
+        mode: none
+        references: []
+      boundaries:
+        executable: bin/timing
+        allowed_argv_prefixes:
+          - [--help]
+          - [info]
+          - [usage]
+          - [summary]
+          - [suggest]
+          - [reconstruct]
+        cwd: "."

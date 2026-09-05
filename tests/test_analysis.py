@@ -405,6 +405,68 @@ def test_reconstruction_separates_interval_metrics_coverage_and_conflicts():
     assert f"activity:{candidate.source_id}" in conflicting_record.conflict_references
 
 
+def test_reconstruction_treats_matching_title_without_id_as_same_project():
+    booking = _reconstruction_source(
+        "booking",
+        1,
+        0,
+        10,
+        project_id=10,
+        project_title="Synthetic Customer",
+        title="Synthetic customer work",
+    )
+    activity = _reconstruction_source(
+        "activity",
+        2,
+        0,
+        10,
+        title="Synthetic customer work",
+    )
+    classifier = Classifier([Rule(project="Synthetic Customer", title="customer")])
+
+    result = __import__("timing_cli.analysis", fromlist=["reconstruct_evidence"])
+    reconstruction = result.reconstruct_evidence(
+        [booking, activity],
+        [booking, activity],
+        classifier,
+    )
+    records = {record.source.source_type: record for record in reconstruction.records}
+
+    assert records["booking"].assignment.conflicts == []
+    assert records["booking"].assignment.uncertainty_reason is None
+    assert records["booking"].conflict_references == []
+    assert records["activity"].conflict_references == []
+
+
+def test_reconstruction_keeps_different_project_conflict():
+    booking = _reconstruction_source(
+        "booking",
+        1,
+        0,
+        10,
+        project_id=10,
+        project_title="Synthetic Existing",
+    )
+    activity = _reconstruction_source(
+        "activity",
+        2,
+        0,
+        10,
+        project_id=11,
+        project_title="Synthetic Different",
+    )
+
+    result = __import__("timing_cli.analysis", fromlist=["reconstruct_evidence"])
+    reconstruction = result.reconstruct_evidence(
+        [booking, activity],
+        [booking, activity],
+        Classifier([]),
+    )
+
+    assert reconstruction.records[0].conflict_references == ["activity:2"]
+    assert reconstruction.records[1].conflict_references == ["booking:1"]
+
+
 def test_reconstruction_gap_is_evidence_span_minus_evidence_union():
     first = _reconstruction_source("activity", 1, 0, 10, title="Synthetic first")
     second = _reconstruction_source("activity", 2, 20, 30, title="Synthetic second")

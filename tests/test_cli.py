@@ -4,7 +4,7 @@ import json
 import os
 import re
 import time as time_module
-from contextlib import contextmanager
+from contextlib import contextmanager, nullcontext
 from datetime import datetime, timedelta, timezone
 
 import pytest
@@ -263,6 +263,7 @@ def test_reconstruct_cli_emits_shared_versioned_schema_and_forwards_continuation
 
     monkeypatch.setattr(cli, "_load", lambda: Config(db_path=tmp_path / "Timing.db"))
     monkeypatch.setattr(cli, "open_db", fake_open_db)
+    monkeypatch.setattr(cli, "reconstruction_read_transaction", lambda conn: nullcontext())
     monkeypatch.setattr(cli, "list_timing_predicate_rules", lambda conn: [])
     monkeypatch.setattr(cli, "reconstruct_window", fake_reconstruct, raising=False)
 

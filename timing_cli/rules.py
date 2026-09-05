@@ -43,6 +43,23 @@ class Classification:
 UNASSIGNED = "Unassigned"
 
 
+def assignments_equivalent(
+    left: AssignmentTarget | AssignmentAlternative,
+    right: AssignmentTarget | AssignmentAlternative,
+) -> bool:
+    """Compare project identity without inventing conflicts from missing IDs."""
+    if left.project_id is not None and right.project_id is not None:
+        return left.project_id == right.project_id
+    if left.project_title != right.project_title:
+        return False
+
+    left_chain = tuple(left.project_title_chain or [left.project_title])
+    right_chain = tuple(right.project_title_chain or [right.project_title])
+    if left_chain == right_chain:
+        return True
+    return len(left_chain) == 1 or len(right_chain) == 1
+
+
 class _CompiledRule:
     __slots__ = ("rule", "origin", "rule_id", "_title_re", "_path_re")
 
@@ -221,8 +238,7 @@ class Classifier:
             conflicts = [
                 alternative
                 for alternative in alternatives
-                if (alternative.project_id, alternative.project_title)
-                != (existing.project_id, existing.project_title)
+                if not assignments_equivalent(alternative, existing)
             ]
             return AssignmentExplanation(
                 existing_assignment=existing,
@@ -247,8 +263,7 @@ class Classifier:
             conflicts = [
                 alternative
                 for alternative in alternatives[1:]
-                if (alternative.project_id, alternative.project_title)
-                != (selected.project_id, selected.project_title)
+                if not assignments_equivalent(alternative, selected)
             ]
             return AssignmentExplanation(
                 selected_assignment=AssignmentTarget(

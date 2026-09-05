@@ -214,6 +214,176 @@ def test_reconstruction_source_page_rejects_invalid_cursor(tmp_path):
             )
 
 
+def test_reconstruction_preserves_activity_without_application_metadata(tmp_path):
+    db_path = tmp_path / "Timing.db"
+    _create_timing_fixture(db_path)
+    conn = sqlite3.connect(db_path)
+    conn.execute(
+        "INSERT INTO AppActivity VALUES (2, ?, ?, 999, NULL, NULL, NULL, 0)",
+        (BASE.timestamp(), (BASE + timedelta(minutes=5)).timestamp()),
+    )
+    conn.commit()
+    conn.close()
+
+    with open_db(db_path) as conn:
+        page = db.list_reconstruction_sources(
+            conn,
+            BASE,
+            BASE + timedelta(minutes=10),
+            limit=10,
+        )
+
+    missing_metadata = next(record for record in page.records if record.source_id == 2)
+    assert page.total_count == page.returned_count == 2
+    assert page.complete is True
+    assert missing_metadata.app == "Unknown"
+    assert missing_metadata.application_id == 999
+
+
+def test_reconstruction_cursor_rejects_insertion_before_position(tmp_path):
+    db_path = tmp_path / "Timing.db"
+    _create_timing_fixture(db_path)
+    conn = sqlite3.connect(db_path)
+    conn.execute(
+        "INSERT INTO TaskActivity VALUES (10, ?, ?, 2, 'Later', NULL, 0, 0, NULL)",
+        (
+            (BASE + timedelta(minutes=5)).timestamp(),
+            (BASE + timedelta(minutes=10)).timestamp(),
+        ),
+    )
+    conn.commit()
+    conn.close()
+
+    with open_db(db_path) as conn:
+        first = db.list_reconstruction_sources(
+            conn,
+            BASE,
+            BASE + timedelta(minutes=20),
+            limit=1,
+        )
+
+    writer = sqlite3.connect(db_path)
+    writer.execute(
+        "INSERT INTO TaskActivity VALUES (11, ?, ?, 2, 'Inserted', NULL, 0, 0, NULL)",
+        (BASE.timestamp(), (BASE + timedelta(minutes=2)).timestamp()),
+    )
+    writer.commit()
+    writer.close()
+
+    with open_db(db_path) as conn:
+        with pytest.raises(ValueError, match="Stale reconstruction cursor"):
+            db.list_reconstruction_sources(
+                conn,
+                BASE,
+                BASE + timedelta(minutes=20),
+                limit=1,
+                cursor=first.next_cursor,
+            )
+
+
+@pytest.mark.parametrize(
+    "mutation",
+    [
+        "UPDATE AppActivity SET endDate = endDate - 60 WHERE id = 1",
+        "UPDATE AppActivity SET isDeleted = 1 WHERE id = 1",
+    ],
+    ids=["update", "delete"],
+)
+def test_reconstruction_cursor_rejects_updated_or_deleted_source(tmp_path, mutation):
+    db_path = tmp_path / "Timing.db"
+    _create_timing_fixture(db_path)
+    conn = sqlite3.connect(db_path)
+    conn.execute(
+        "INSERT INTO TaskActivity VALUES (10, ?, ?, 2, 'Later', NULL, 0, 0, NULL)",
+        (
+            (BASE + timedelta(minutes=5)).timestamp(),
+            (BASE + timedelta(minutes=10)).timestamp(),
+        ),
+    )
+    conn.commit()
+    conn.close()
+
+    with open_db(db_path) as conn:
+        first = db.list_reconstruction_sources(
+            conn,
+            BASE,
+            BASE + timedelta(minutes=20),
+            limit=1,
+        )
+
+    writer = sqlite3.connect(db_path)
+    writer.execute(mutation)
+    writer.commit()
+    writer.close()
+
+    with open_db(db_path) as conn:
+        with pytest.raises(ValueError, match="Stale reconstruction cursor"):
+            db.list_reconstruction_sources(
+                conn,
+                BASE,
+                BASE + timedelta(minutes=20),
+                limit=1,
+                cursor=first.next_cursor,
+            )
+
+
+def test_reconstruction_response_uses_one_snapshot_during_concurrent_write(
+    tmp_path,
+    monkeypatch,
+):
+    db_path = tmp_path / "Timing.db"
+    _create_timing_fixture(db_path)
+    setup = sqlite3.connect(db_path)
+    setup.execute("PRAGMA journal_mode=WAL")
+    setup.close()
+    original_snapshot = db.reconstruction_snapshot
+    wrote = False
+
+    def snapshot_then_write(conn, start, end):
+        nonlocal wrote
+        snapshot = original_snapshot(conn, start, end)
+        if not wrote:
+            writer = sqlite3.connect(db_path)
+            writer.execute(
+                "INSERT INTO AppActivity VALUES (2, ?, ?, 1, 1, 1, 2, 0)",
+                (
+                    BASE.timestamp(),
+                    (BASE + timedelta(minutes=5)).timestamp(),
+                ),
+            )
+            writer.commit()
+            writer.close()
+            wrote = True
+        return snapshot
+
+    monkeypatch.setattr(db, "reconstruction_snapshot", snapshot_then_write)
+    window_end = BASE + timedelta(minutes=10)
+    with open_db(db_path) as conn:
+        response = analysis.reconstruct_window(
+            conn,
+            BASE,
+            window_end,
+            Classifier([]),
+            limit=10,
+        )
+
+    assert response.pagination.total_count == 1
+    assert response.pagination.returned_count == 1
+    assert response.metrics.raw_cumulative_activity_seconds == 10 * 60
+
+    monkeypatch.setattr(db, "reconstruction_snapshot", original_snapshot)
+    with open_db(db_path) as conn:
+        fresh = analysis.reconstruct_window(
+            conn,
+            BASE,
+            window_end,
+            Classifier([]),
+            limit=10,
+        )
+    assert fresh.pagination.total_count == 2
+    assert fresh.metrics.raw_cumulative_activity_seconds == 15 * 60
+
+
 def test_reconstruction_project_chain_is_bounded_and_keeps_current_project(tmp_path):
     db_path = tmp_path / "Timing.db"
     _create_timing_fixture(db_path)
