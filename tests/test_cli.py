@@ -1,9 +1,11 @@
 from __future__ import annotations
 
 import json
+import os
 import re
+import time as time_module
 from contextlib import contextmanager
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 import pytest
 from typer.testing import CliRunner
@@ -14,6 +16,23 @@ from timing_cli.config import Config
 from timing_cli.models import AppUsage, Project, ProjectSummary, TimeEntrySuggestion
 
 runner = CliRunner()
+
+
+@pytest.fixture
+def berlin_timezone(monkeypatch):
+    old_tz = os.environ.get("TZ")
+    monkeypatch.setenv("TZ", "Europe/Berlin")
+    if hasattr(time_module, "tzset"):
+        time_module.tzset()
+    try:
+        yield
+    finally:
+        if old_tz is None:
+            os.environ.pop("TZ", None)
+        else:
+            os.environ["TZ"] = old_tz
+        if hasattr(time_module, "tzset"):
+            time_module.tzset()
 
 
 @pytest.fixture
@@ -98,6 +117,37 @@ def test_summary_rejects_inverted_window():
     assert result.exit_code != 0
     assert "must be after" in output
     assert "Traceback" not in output
+
+
+@pytest.mark.parametrize(
+    ("day", "expected_start", "expected_end", "elapsed_hours"),
+    [
+        ("2026-03-29", "2026-03-29T00:00:00+01:00", "2026-03-30T00:00:00+02:00", 23),
+        ("2026-03-30", "2026-03-30T00:00:00+02:00", "2026-03-31T00:00:00+02:00", 24),
+    ],
+)
+def test_cli_local_day_window_follows_berlin_timezone_rules(
+    berlin_timezone, day, expected_start, expected_end, elapsed_hours
+):
+    start, end = cli._resolve_window(day, None, None)
+
+    assert start.isoformat() == expected_start
+    assert end.isoformat() == expected_end
+    assert end.timestamp() - start.timestamp() == elapsed_hours * 3600
+
+
+def test_cli_explicit_offset_window_is_preserved(berlin_timezone):
+    start, end = cli._resolve_window(
+        None,
+        "2026-03-29T00:00:00+01:00",
+        "2026-03-30T00:00:00+01:00",
+    )
+
+    assert start.isoformat() == "2026-03-29T00:00:00+01:00"
+    assert end.isoformat() == "2026-03-30T01:00:00+02:00"
+    assert start == datetime(2026, 3, 29, tzinfo=timezone(timedelta(hours=1)))
+    assert end == datetime(2026, 3, 30, tzinfo=timezone(timedelta(hours=1)))
+    assert end.timestamp() - start.timestamp() == 24 * 3600
 
 
 def test_serve_rejects_unknown_transport_without_traceback():

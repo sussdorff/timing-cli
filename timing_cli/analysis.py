@@ -25,6 +25,11 @@ def _local_midnight(day: date) -> datetime:
     return datetime.fromtimestamp(naive_midnight.timestamp()).astimezone()
 
 
+def local_day_window(day: date) -> tuple[datetime, datetime]:
+    """Return timezone-rule-aware local midnights bounding a calendar day."""
+    return _local_midnight(day), _local_midnight(day + timedelta(days=1))
+
+
 def _split_at_local_midnight(start: datetime, end: datetime) -> list[tuple[datetime, datetime]]:
     pieces: list[tuple[datetime, datetime]] = []
     current = start

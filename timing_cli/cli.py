@@ -2,13 +2,13 @@
 
 from __future__ import annotations
 
-from datetime import date, datetime, time, timedelta
+from datetime import date, datetime
 
 import rich.traceback
 import typer
 
 from timing_cli import __version__, output
-from timing_cli.analysis import aggregate, summarize_by_project
+from timing_cli.analysis import aggregate, local_day_window, summarize_by_project
 from timing_cli.api import TimingApiClient, TimingApiError
 from timing_cli.config import Config, load_config
 from timing_cli.db import (
@@ -76,8 +76,7 @@ def _resolve_window(
             )
         else:
             day = date.fromisoformat(date_opt) if date_opt else date.today()
-            start = _day_start(day)
-            end = start + timedelta(days=1)
+            start, end = local_day_window(day)
     except ValueError as exc:
         raise typer.BadParameter("Use ISO-8601 dates, e.g. 2026-07-05") from exc
 
@@ -87,7 +86,7 @@ def _resolve_window(
 
 
 def _day_start(day: date) -> datetime:
-    return datetime.combine(day, time.min).astimezone()
+    return local_day_window(day)[0]
 
 
 def _load() -> Config:

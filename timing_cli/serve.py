@@ -14,14 +14,14 @@ import plistlib
 import secrets
 import subprocess  # nosec B404 - launchctl install/uninstall only, no shell
 import sys
-from datetime import date, datetime, time, timedelta
+from datetime import date, datetime
 from pathlib import Path
 from typing import Any
 
 from fastmcp import FastMCP
 from fastmcp.server.auth import AccessToken, TokenVerifier
 
-from timing_cli.analysis import aggregate, summarize_by_project
+from timing_cli.analysis import aggregate, local_day_window, summarize_by_project
 from timing_cli.api import TimingApiClient, TimingApiError
 from timing_cli.config import load_config
 from timing_cli.db import (
@@ -69,8 +69,7 @@ class StaticBearerTokenVerifier(TokenVerifier):
 
 def _day_window(day: str | None) -> tuple[datetime, datetime]:
     d = date.fromisoformat(day) if day else date.today()
-    start = datetime.combine(d, time.min).astimezone()
-    return start, start + timedelta(days=1)
+    return local_day_window(d)
 
 
 def _window(day: str | None, start: str | None, end: str | None) -> tuple[datetime, datetime]:

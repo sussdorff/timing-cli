@@ -1,6 +1,9 @@
 from __future__ import annotations
 
+import os
 import plistlib
+import time as time_module
+from datetime import datetime, timedelta, timezone
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -15,6 +18,54 @@ def reset_mcp_auth():
         yield
     finally:
         serve.mcp.auth = None
+
+
+@pytest.fixture
+def berlin_timezone(monkeypatch):
+    old_tz = os.environ.get("TZ")
+    monkeypatch.setenv("TZ", "Europe/Berlin")
+    if hasattr(time_module, "tzset"):
+        time_module.tzset()
+    try:
+        yield
+    finally:
+        if old_tz is None:
+            os.environ.pop("TZ", None)
+        else:
+            os.environ["TZ"] = old_tz
+        if hasattr(time_module, "tzset"):
+            time_module.tzset()
+
+
+@pytest.mark.parametrize(
+    ("day", "expected_start", "expected_end", "elapsed_hours"),
+    [
+        ("2026-03-29", "2026-03-29T00:00:00+01:00", "2026-03-30T00:00:00+02:00", 23),
+        ("2026-03-30", "2026-03-30T00:00:00+02:00", "2026-03-31T00:00:00+02:00", 24),
+    ],
+)
+def test_mcp_local_day_window_follows_berlin_timezone_rules(
+    berlin_timezone, day, expected_start, expected_end, elapsed_hours
+):
+    start, end = serve._window(day, None, None)
+
+    assert start.isoformat() == expected_start
+    assert end.isoformat() == expected_end
+    assert end.timestamp() - start.timestamp() == elapsed_hours * 3600
+
+
+def test_mcp_explicit_offset_window_is_preserved(berlin_timezone):
+    start, end = serve._window(
+        None,
+        "2026-03-29T00:00:00+01:00",
+        "2026-03-30T00:00:00+01:00",
+    )
+
+    assert start.isoformat() == "2026-03-29T00:00:00+01:00"
+    assert end.isoformat() == "2026-03-30T01:00:00+02:00"
+    assert start == datetime(2026, 3, 29, tzinfo=timezone(timedelta(hours=1)))
+    assert end == datetime(2026, 3, 30, tzinfo=timezone(timedelta(hours=1)))
+    assert end.timestamp() - start.timestamp() == 24 * 3600
 
 
 def test_http_transport_requires_bearer_token(monkeypatch):
