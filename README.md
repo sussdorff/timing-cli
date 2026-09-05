@@ -67,7 +67,7 @@ same push skips matching existing entries unless `--replace` is passed.
 | --- | --- |
 | `timing info` | Database location, recorded date range, token status |
 | `timing projects [--remote] [--archived]` | List projects (local DB or Web API) |
-| `timing usage [--date/--from/--to] [--project ID]` | Raw automatically tracked app usage |
+| `timing usage [--date/--from/--to] [--project ID] [--show-path]` | Raw automatically tracked app usage. Paths stay hidden unless `--show-path` is supplied. |
 | `timing summary [--date/--from/--to]` | Total time per project |
 | `timing suggest [--date/--from/--to]` | Aggregated time-entry suggestions (read-only) |
 | `timing push [--date/--from/--to] [--yes] [--replace]` | Create entries via Web API (dry-run by default) |
