@@ -2,13 +2,34 @@
 
 from __future__ import annotations
 
+import json
+import sys
+from typing import Any
+
 from rich.console import Console
 from rich.table import Table
 
 from timing_cli.models import AppUsage, ProjectSummary, TimeEntrySuggestion
 
-console = Console()
-err_console = Console(stderr=True)
+
+def _make_consoles(*, no_color: bool) -> tuple[Console, Console]:
+    if no_color:
+        return (
+            Console(highlight=False, no_color=True),
+            Console(stderr=True, highlight=False, no_color=True),
+        )
+    return Console(), Console(stderr=True)
+
+
+_no_color = not sys.stdout.isatty()
+console, err_console = _make_consoles(no_color=_no_color)
+
+
+def configure_output(no_color: bool = False) -> None:
+    """Reconfigure output consoles for no-color mode."""
+    global console, err_console
+    disable_color = no_color or not sys.stdout.isatty()
+    console, err_console = _make_consoles(no_color=disable_color)
 
 
 def _fmt_duration(seconds: float) -> str:
@@ -22,7 +43,20 @@ def _fmt_duration(seconds: float) -> str:
     return f"{secs}s"
 
 
-def render_usage(usage: list[AppUsage]) -> None:
+def _print_models(models: list[AppUsage | ProjectSummary | TimeEntrySuggestion]) -> None:
+    payload = [model.model_dump(mode="json") for model in models]
+    print_json(payload)
+
+
+def print_json(payload: Any) -> None:
+    """Emit stable machine-readable JSON without passing through Rich."""
+    print(json.dumps(payload, indent=2, sort_keys=True))
+
+
+def render_usage(usage: list[AppUsage], *, json_output: bool = False) -> None:
+    if json_output:
+        _print_models(usage)
+        return
     table = Table(title="App usage", show_lines=False)
     table.add_column("Start", style="cyan", no_wrap=True)
     table.add_column("Dur", justify="right")
@@ -40,7 +74,15 @@ def render_usage(usage: list[AppUsage]) -> None:
     console.print(table)
 
 
-def render_summary(summaries: list[ProjectSummary], title: str = "Project summary") -> None:
+def render_summary(
+    summaries: list[ProjectSummary],
+    title: str = "Project summary",
+    *,
+    json_output: bool = False,
+) -> None:
+    if json_output:
+        _print_models(summaries)
+        return
     table = Table(title=title)
     table.add_column("Project", style="magenta")
     table.add_column("Time", justify="right")
@@ -54,7 +96,12 @@ def render_summary(summaries: list[ProjectSummary], title: str = "Project summar
     console.print(table)
 
 
-def render_suggestions(suggestions: list[TimeEntrySuggestion]) -> None:
+def render_suggestions(
+    suggestions: list[TimeEntrySuggestion], *, json_output: bool = False
+) -> None:
+    if json_output:
+        _print_models(suggestions)
+        return
     table = Table(title="Suggested time entries")
     table.add_column("Day", style="cyan", no_wrap=True)
     table.add_column("Start", no_wrap=True)

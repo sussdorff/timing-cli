@@ -4,9 +4,10 @@ from __future__ import annotations
 
 from datetime import date, datetime, time, timedelta
 
+import rich.traceback
 import typer
 
-from timing_cli import __version__
+from timing_cli import __version__, output
 from timing_cli.analysis import aggregate, summarize_by_project
 from timing_cli.api import TimingApiClient, TimingApiError
 from timing_cli.config import Config, load_config
@@ -19,8 +20,10 @@ from timing_cli.db import (
     open_db,
 )
 from timing_cli.models import TimeEntrySuggestion
-from timing_cli.output import console, err_console, render_suggestions, render_summary, render_usage
+from timing_cli.output import render_suggestions, render_summary, render_usage
 from timing_cli.rules import UNASSIGNED, Classifier
+
+rich.traceback.install(show_locals=False)
 
 app = typer.Typer(
     name="timing",
@@ -32,7 +35,7 @@ app = typer.Typer(
 
 def _version_callback(value: bool) -> None:
     if value:
-        console.print(f"timing-cli {__version__}")
+        output.console.print(f"timing-cli {__version__}")
         raise typer.Exit()
 
 
@@ -41,8 +44,12 @@ def main(
     version: bool = typer.Option(
         False, "--version", callback=_version_callback, is_eager=True, help="Show version and exit"
     ),
+    no_color: bool = typer.Option(
+        False, "--no-color", is_eager=True, help="Disable ANSI color codes"
+    ),
 ) -> None:
     """timing-cli - local Timing.app activity to Timing time entries."""
+    output.configure_output(no_color=no_color)
 
 
 def _resolve_window(
@@ -88,7 +95,7 @@ def _load() -> Config:
 
 
 def _exit_with_error(message: str) -> None:
-    err_console.print(f"[red]{message}[/red]")
+    output.err_console.print(f"[red]{message}[/red]")
     raise typer.Exit(1)
 
 
@@ -98,49 +105,73 @@ ToOpt = typer.Option(None, "--to", "-t", help="End datetime (ISO 8601), override
 
 
 @app.command()
-def info() -> None:
+def info(
+    json_output: bool = typer.Option(False, "--json", help="Emit machine-readable JSON"),
+) -> None:
     """Show the database location and the recorded activity date range."""
     cfg = _load()
-    console.print(f"Database: [cyan]{cfg.db_path}[/cyan]")
     try:
         with open_db(cfg.db_path) as conn:
             rng = date_range(conn)
             projects = list_projects(conn, include_archived=False)
     except TimingDatabaseError as exc:
         _exit_with_error(str(exc))
+    if json_output:
+        output.print_json(
+            {
+                "active_projects": len(projects),
+                "api_token_set": bool(cfg.resolved_token()),
+                "database": str(cfg.db_path),
+                "recorded_end": rng[1].isoformat() if rng else None,
+                "recorded_start": rng[0].isoformat() if rng else None,
+            }
+        )
+        return
+    output.console.print(f"Database: [cyan]{cfg.db_path}[/cyan]")
     if rng:
-        console.print(
+        output.console.print(
             f"Recorded: [green]{rng[0]:%Y-%m-%d}[/green] -> "
             f"[green]{rng[1]:%Y-%m-%d}[/green]"
         )
-    console.print(f"Active projects: {len(projects)}")
-    console.print(f"API token: {'set' if cfg.resolved_token() else '[yellow]not set[/yellow]'}")
+    output.console.print(f"Active projects: {len(projects)}")
+    output.console.print(
+        f"API token: {'set' if cfg.resolved_token() else '[yellow]not set[/yellow]'}"
+    )
 
 
 @app.command()
 def projects(
     remote: bool = typer.Option(False, "--remote", help="List projects from the Web API instead"),
     archived: bool = typer.Option(False, "--archived", help="Include archived projects"),
+    json_output: bool = typer.Option(False, "--json", help="Emit machine-readable JSON"),
 ) -> None:
     """List projects (local database by default, or the Web API with --remote)."""
     cfg = _load()
     if remote:
         try:
             with TimingApiClient(cfg.api_base_url, cfg.resolved_token()) as client:
-                for p in client.list_projects(hide_archived=not archived):
+                projects = client.list_projects(hide_archived=not archived)
+                if json_output:
+                    output.print_json(projects)
+                    return
+                for p in projects:
                     chain = " / ".join(p.get("title_chain") or [p.get("title", "")])
-                    console.print(f"[magenta]{p.get('self')}[/magenta]  {chain}")
+                    output.console.print(f"[magenta]{p.get('self')}[/magenta]  {chain}")
         except TimingApiError as exc:
-            err_console.print(f"[red]{exc}[/red]")
+            output.err_console.print(f"[red]{exc}[/red]")
             raise typer.Exit(1) from exc
         return
     try:
         with open_db(cfg.db_path) as conn:
-            for p in list_projects(conn, include_archived=archived):
-                marker = " [dim](archived)[/dim]" if p.is_archived else ""
-                console.print(f"[magenta]{p.id}[/magenta]  {p.title}{marker}")
+            projects = list_projects(conn, include_archived=archived)
     except TimingDatabaseError as exc:
         _exit_with_error(str(exc))
+    if json_output:
+        output.print_json([project.model_dump(mode="json") for project in projects])
+        return
+    for project in projects:
+        marker = " [dim](archived)[/dim]" if project.is_archived else ""
+        output.console.print(f"[magenta]{project.id}[/magenta]  {project.title}{marker}")
 
 
 @app.command()
@@ -154,6 +185,7 @@ def usage(
         "-p",
         help="Filter by local project id",
     ),
+    json_output: bool = typer.Option(False, "--json", help="Emit machine-readable JSON"),
 ) -> None:
     """Show raw automatically tracked app usage for a window."""
     cfg = _load()
@@ -163,7 +195,7 @@ def usage(
             slices = list_app_usage(conn, start, end, project_id=project_id)
     except TimingDatabaseError as exc:
         _exit_with_error(str(exc))
-    render_usage(slices)
+    render_usage(slices, json_output=json_output)
 
 
 @app.command()
@@ -174,6 +206,7 @@ def summary(
     include_unassigned: bool = typer.Option(
         True, "--unassigned/--no-unassigned", help="Include time not mapped to any project"
     ),
+    json_output: bool = typer.Option(False, "--json", help="Emit machine-readable JSON"),
 ) -> None:
     """Show total tracked time per project for a window."""
     cfg = _load()
@@ -186,7 +219,11 @@ def summary(
         _exit_with_error(str(exc))
     classifier = Classifier(cfg.rules, timing_rules=timing_rules)
     summaries = summarize_by_project(slices, classifier, include_unassigned=include_unassigned)
-    render_summary(summaries, title=f"Project summary {start:%Y-%m-%d} .. {end:%Y-%m-%d}")
+    render_summary(
+        summaries,
+        title=f"Project summary {start:%Y-%m-%d} .. {end:%Y-%m-%d}",
+        json_output=json_output,
+    )
 
 
 @app.command()
@@ -197,6 +234,7 @@ def suggest(
     include_unassigned: bool = typer.Option(
         False, "--unassigned/--no-unassigned", help="Also suggest entries for unassigned time"
     ),
+    json_output: bool = typer.Option(False, "--json", help="Emit machine-readable JSON"),
 ) -> None:
     """Show suggested time entries aggregated from app usage (does not write)."""
     cfg = _load()
@@ -215,7 +253,7 @@ def suggest(
         gap_merge_seconds=cfg.gap_merge_seconds,
         include_unassigned=include_unassigned,
     )
-    render_suggestions(suggestions)
+    render_suggestions(suggestions, json_output=json_output)
 
 
 @app.command()
@@ -233,6 +271,7 @@ def push(
     include_unassigned: bool = typer.Option(
         False, "--unassigned/--no-unassigned", help="Also push unassigned time"
     ),
+    json_output: bool = typer.Option(False, "--json", help="Emit machine-readable JSON"),
 ) -> None:
     """Create Timing time entries from suggestions via the Web API.
 
@@ -256,16 +295,34 @@ def push(
         gap_merge_seconds=cfg.gap_merge_seconds,
         include_unassigned=include_unassigned,
     )
-    render_suggestions(suggestions)
+    if not json_output:
+        render_suggestions(suggestions)
 
     if not suggestions:
-        console.print("[yellow]Nothing to push.[/yellow]")
+        if json_output:
+            output.print_json(
+                {"created": 0, "dry_run": not yes, "skipped": 0, "suggestions": []}
+            )
+        else:
+            output.console.print("[yellow]Nothing to push.[/yellow]")
         return
     if not yes:
-        console.print(
-            f"[yellow]Dry-run:[/yellow] would create {len(suggestions)} entries. "
-            "Re-run with --yes to push."
-        )
+        if json_output:
+            output.print_json(
+                {
+                    "created": 0,
+                    "dry_run": True,
+                    "skipped": 0,
+                    "suggestions": [
+                        suggestion.model_dump(mode="json") for suggestion in suggestions
+                    ],
+                }
+            )
+        else:
+            output.console.print(
+                f"[yellow]Dry-run:[/yellow] would create {len(suggestions)} entries. "
+                "Re-run with --yes to push."
+            )
         return
 
     try:
@@ -323,9 +380,21 @@ def push(
             message = f"Created {created} time entries."
             if skipped:
                 message += f" Skipped {skipped} existing entries."
-            console.print(f"[green]{message}[/green]")
+            if json_output:
+                output.print_json(
+                    {
+                        "created": created,
+                        "dry_run": False,
+                        "skipped": skipped,
+                        "suggestions": [
+                            suggestion.model_dump(mode="json") for suggestion in suggestions
+                        ],
+                    }
+                )
+            else:
+                output.console.print(f"[green]{message}[/green]")
     except TimingApiError as exc:
-        err_console.print(f"[red]{exc}[/red]")
+        output.err_console.print(f"[red]{exc}[/red]")
         raise typer.Exit(1) from exc
 
 
@@ -349,7 +418,7 @@ def serve(
 
     if uninstall:
         uninstall_launch_agent()
-        console.print("[green]timing serve LaunchAgent removed.[/green]")
+        output.console.print("[green]timing serve LaunchAgent removed.[/green]")
         return
 
     if install:
@@ -358,7 +427,7 @@ def serve(
         except ValueError as exc:
             _exit_with_error(str(exc))
             return
-        console.print(f"[green]timing serve LaunchAgent installed: {path}[/green]")
+        output.console.print(f"[green]timing serve LaunchAgent installed: {path}[/green]")
         return
 
     try:
