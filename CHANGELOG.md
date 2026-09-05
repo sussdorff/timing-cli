@@ -8,6 +8,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- Versioned, bounded CLI/MCP reconstruction of existing bookings and automatic
+  activity with lossless local identifiers, assignment evidence, interval
+  metrics, conflicts, and continuation cursors.
 - Initial scaffold of `timing-cli`.
 - Read-only access to the local Timing.app SQLite database (`db.py`).
 - Rule-based classification of app usage onto projects (`rules.py`).

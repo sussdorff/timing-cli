@@ -17,13 +17,23 @@ Key schema facts (Timing2):
 
 from __future__ import annotations
 
+import base64
+import json
+import math
 import sqlite3
 from collections.abc import Iterator
 from contextlib import contextmanager
+from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 
-from timing_cli.models import AppUsage, Project
+from timing_cli.models import (
+    MAX_PROJECT_TITLE_CHAIN,
+    MAX_RECONSTRUCTION_PAGE_SIZE,
+    AppUsage,
+    Project,
+    ReconstructionSource,
+)
 from timing_cli.timing_predicates import TimingPredicateRule, decode_timing_predicate
 
 
@@ -31,9 +41,42 @@ class TimingDatabaseError(RuntimeError):
     """Raised when the local Timing database cannot be opened or read."""
 
 
+@dataclass(frozen=True)
+class ReconstructionSourcePage:
+    """One SQL-bounded page of reconstruction source rows."""
+
+    records: list[ReconstructionSource]
+    total_count: int
+    returned_count: int
+    complete: bool
+    next_cursor: str | None
+
+
 def _epoch_to_local(value: float) -> datetime:
     """Convert a Timing Unix-epoch timestamp to an aware local datetime."""
     return datetime.fromtimestamp(value).astimezone()
+
+
+def _encode_reconstruction_cursor(start_ts: float, source_rank: int, source_id: int) -> str:
+    payload = json.dumps(
+        [start_ts.hex(), source_rank, str(source_id)],
+        separators=(",", ":"),
+    ).encode()
+    return base64.urlsafe_b64encode(payload).decode().rstrip("=")
+
+
+def _decode_reconstruction_cursor(cursor: str) -> tuple[float, int, int]:
+    try:
+        padding = "=" * (-len(cursor) % 4)
+        payload = base64.b64decode(cursor + padding, altchars=b"-_", validate=True)
+        start_hex, source_rank, source_id_text = json.loads(payload)
+        start_ts = float.fromhex(start_hex)
+        source_id = int(source_id_text)
+        if not math.isfinite(start_ts) or source_rank not in {0, 1}:
+            raise ValueError
+    except (ValueError, TypeError, json.JSONDecodeError) as exc:
+        raise ValueError("Invalid reconstruction cursor") from exc
+    return start_ts, source_rank, source_id
 
 
 @contextmanager
@@ -232,6 +275,173 @@ def list_app_usage(
             )
         )
     return usage
+
+
+def list_reconstruction_sources(
+    conn: sqlite3.Connection,
+    start: datetime,
+    end: datetime,
+    *,
+    limit: int,
+    cursor: str | None = None,
+) -> ReconstructionSourcePage:
+    """Return one keyset-paged slice of bookings and automatic activity."""
+    if not 1 <= limit <= MAX_RECONSTRUCTION_PAGE_SIZE:
+        raise ValueError(f"limit must be between 1 and {MAX_RECONSTRUCTION_PAGE_SIZE}")
+    cursor_key = _decode_reconstruction_cursor(cursor) if cursor else None
+    if end <= start:
+        return ReconstructionSourcePage([], 0, 0, True, None)
+
+    window_params = (end.timestamp(), start.timestamp())
+    count_row = conn.execute(
+        """
+        SELECT
+            (SELECT COUNT(*) FROM TaskActivity
+             WHERE isDeleted = 0 AND isRunning = 0
+               AND startDate < ? AND endDate > ?)
+          + (SELECT COUNT(*) FROM AppActivity
+             WHERE isDeleted = 0 AND startDate < ? AND endDate > ?) AS total_count
+        """,
+        (*window_params, *window_params),
+    ).fetchone()
+    total_count = int(count_row["total_count"])
+
+    params: list[float | int | None] = [
+        *window_params,
+        *window_params,
+        start.timestamp(),
+    ]
+    if cursor_key:
+        cursor_start, cursor_rank, cursor_id = cursor_key
+        params.extend([cursor_start, cursor_start, cursor_rank, cursor_id])
+    else:
+        params.extend([None, None, None, None])
+    params.append(limit + 1)
+
+    rows = conn.execute(
+        """
+        WITH sources AS (
+            SELECT
+                'booking' AS source_type,
+                0 AS source_rank,
+                task.id AS source_id,
+                task.startDate AS start_ts,
+                task.endDate AS end_ts,
+                task.projectID AS project_id,
+                project.title AS project_title,
+                NULL AS application_id,
+                NULL AS app,
+                NULL AS bundle_id,
+                task.title AS title,
+                NULL AS path,
+                task.notes AS notes
+            FROM TaskActivity task
+            LEFT JOIN Project project ON project.id = task.projectID
+            WHERE task.isDeleted = 0
+              AND task.isRunning = 0
+              AND task.startDate < ?
+              AND task.endDate > ?
+
+            UNION ALL
+
+            SELECT
+                'activity' AS source_type,
+                1 AS source_rank,
+                activity.id AS source_id,
+                activity.startDate AS start_ts,
+                activity.endDate AS end_ts,
+                activity.projectID AS project_id,
+                project.title AS project_title,
+                activity.applicationID AS application_id,
+                COALESCE(application.title, application.bundleIdentifier,
+                         application.executable, 'Unknown') AS app,
+                application.bundleIdentifier AS bundle_id,
+                title.stringValue AS title,
+                path.stringValue AS path,
+                NULL AS notes
+            FROM AppActivity activity
+            JOIN Application application ON application.id = activity.applicationID
+            LEFT JOIN Title title ON title.id = activity.titleID
+            LEFT JOIN Path path ON path.id = activity.pathID
+            LEFT JOIN Project project ON project.id = activity.projectID
+            WHERE activity.isDeleted = 0
+              AND activity.startDate < ?
+              AND activity.endDate > ?
+        ), ordered_sources AS (
+            SELECT *, MAX(start_ts, ?) AS clipped_start_ts
+            FROM sources
+        )
+        SELECT * FROM ordered_sources
+        WHERE ? IS NULL OR (clipped_start_ts, source_rank, source_id) > (?, ?, ?)
+        ORDER BY clipped_start_ts, source_rank, source_id
+        LIMIT ?
+        """,
+        params,
+    ).fetchall()
+
+    has_more = len(rows) > limit
+    page_rows = rows[:limit]
+    project_ids = {row["project_id"] for row in page_rows if row["project_id"] is not None}
+    title_chains = _project_title_chains(conn, project_ids)
+    records: list[ReconstructionSource] = []
+    for row in page_rows:
+        project_title_chain = title_chains.get(row["project_id"], [])
+        records.append(
+            ReconstructionSource(
+                source_type=row["source_type"],
+                source_id=row["source_id"],
+                start=max(_epoch_to_local(row["start_ts"]), start),
+                end=min(_epoch_to_local(row["end_ts"]), end),
+                project_id=row["project_id"],
+                project_title=row["project_title"],
+                project_title_chain=project_title_chain[-MAX_PROJECT_TITLE_CHAIN:],
+                project_title_chain_complete=(
+                    len(project_title_chain) <= MAX_PROJECT_TITLE_CHAIN
+                ),
+                application_id=row["application_id"],
+                app=row["app"],
+                bundle_id=row["bundle_id"],
+                title=row["title"],
+                path=row["path"],
+                notes=row["notes"],
+            )
+        )
+    next_cursor = None
+    if has_more and page_rows:
+        last = page_rows[-1]
+        next_cursor = _encode_reconstruction_cursor(
+            last["clipped_start_ts"], last["source_rank"], last["source_id"]
+        )
+    return ReconstructionSourcePage(
+        records=records,
+        total_count=total_count,
+        returned_count=len(records),
+        complete=not has_more,
+        next_cursor=next_cursor,
+    )
+
+
+def iter_reconstruction_sources(
+    conn: sqlite3.Connection,
+    start: datetime,
+    end: datetime,
+    *,
+    batch_size: int = MAX_RECONSTRUCTION_PAGE_SIZE,
+) -> Iterator[ReconstructionSource]:
+    """Stream a full window through capped SQL keyset pages."""
+    cursor = None
+    while True:
+        page = list_reconstruction_sources(
+            conn,
+            start,
+            end,
+            limit=batch_size,
+            cursor=cursor,
+        )
+        yield from page.records
+        if page.complete:
+            return
+        cursor = page.next_cursor
 
 
 def list_timing_predicate_rules(

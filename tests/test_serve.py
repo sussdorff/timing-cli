@@ -3,6 +3,7 @@ from __future__ import annotations
 import os
 import plistlib
 import time as time_module
+from contextlib import contextmanager
 from datetime import datetime, timedelta, timezone
 from unittest.mock import MagicMock, patch
 
@@ -10,6 +11,7 @@ import pytest
 
 from timing_cli import serve
 from timing_cli.config import Config
+from timing_cli.models import AppUsage, Project, ProjectSummary, TimeEntrySuggestion
 
 
 @pytest.fixture(autouse=True)
@@ -90,6 +92,108 @@ def test_http_transport_configures_auth(monkeypatch):
 
     assert calls == [((), {"transport": "http", "host": "127.0.0.1", "port": 8321})]
     assert isinstance(serve.mcp.auth, serve.StaticBearerTokenVerifier)
+
+
+def test_existing_mcp_model_paths_use_lossless_decimal_string_ids(monkeypatch, tmp_path):
+    local_id = 2**54 + 123
+    start = datetime(2026, 7, 5, 9, 0).astimezone()
+    end = start + timedelta(minutes=10)
+    project = Project(id=local_id, title="Synthetic Project")
+    usage = AppUsage(
+        id=local_id,
+        start=start,
+        end=end,
+        application_id=local_id,
+        app="Synthetic Editor",
+        project_id=local_id,
+        project_title=project.title,
+    )
+    summary = ProjectSummary(
+        project_id=local_id,
+        project_title=project.title,
+        seconds=600,
+        entries=1,
+    )
+    suggestion = TimeEntrySuggestion(
+        day="2026-07-05",
+        start=start,
+        end=end,
+        project_id=local_id,
+        project_title=project.title,
+    )
+
+    @contextmanager
+    def fake_open_db(path):
+        yield object()
+
+    monkeypatch.setattr(serve, "load_config", lambda: Config(db_path=tmp_path / "Timing.db"))
+    monkeypatch.setattr(serve, "open_db", fake_open_db)
+    monkeypatch.setattr(
+        serve, "list_projects", lambda conn, include_archived=False: [project]
+    )
+    monkeypatch.setattr(
+        serve, "list_app_usage", lambda conn, lo, hi, project_id=None: [usage]
+    )
+    monkeypatch.setattr(serve, "list_timing_predicate_rules", lambda conn: [])
+    monkeypatch.setattr(serve, "summarize_by_project", lambda *args, **kwargs: [summary])
+    monkeypatch.setattr(serve, "aggregate", lambda *args, **kwargs: [suggestion])
+
+    projects = serve.list_timing_projects()
+    usage_rows = serve.list_app_usage_tool(day="2026-07-05")
+    summaries = serve.daily_project_summary(day="2026-07-05")
+    suggestions = serve.suggest_time_entries(day="2026-07-05")
+
+    assert project.id == local_id
+    assert projects[0]["id"] == str(local_id)
+    assert usage_rows[0]["id"] == str(local_id)
+    assert usage_rows[0]["application_id"] == str(local_id)
+    assert usage_rows[0]["project_id"] == str(local_id)
+    assert summaries[0]["project_id"] == str(local_id)
+    assert suggestions[0]["project_id"] == str(local_id)
+
+
+def test_reconstruct_mcp_emits_shared_versioned_schema_and_forwards_continuation(
+    berlin_timezone, monkeypatch, tmp_path
+):
+    calls = []
+    expected = {
+        "schema_version": "timing.reconstruction.v1",
+        "window": {"interval_semantics": "half-open"},
+        "pagination": {"complete": False, "next_cursor": "next-page"},
+        "metrics": {"scope": "window"},
+        "records": [],
+    }
+
+    class FakeResponse:
+        def model_dump(self, *, mode):
+            assert mode == "json"
+            return expected
+
+    @contextmanager
+    def fake_open_db(path):
+        yield object()
+
+    def fake_reconstruct(conn, start, end, classifier, **kwargs):
+        calls.append((start, end, kwargs))
+        return FakeResponse()
+
+    monkeypatch.setattr(serve, "load_config", lambda: Config(db_path=tmp_path / "Timing.db"))
+    monkeypatch.setattr(serve, "open_db", fake_open_db)
+    monkeypatch.setattr(serve, "list_timing_predicate_rules", lambda conn: [])
+    monkeypatch.setattr(serve, "reconstruct_window", fake_reconstruct, raising=False)
+
+    payload = serve.reconstruct_work(
+        month="2026-07",
+        limit=25,
+        cursor="current-page",
+    )
+
+    assert payload == expected
+    start, end, options = calls[0]
+    assert start.isoformat() == "2026-07-01T00:00:00+02:00"
+    assert end.isoformat() == "2026-08-01T00:00:00+02:00"
+    assert options["limit"] == 25
+    assert options["cursor"] == "current-page"
 
 
 class TestLaunchAgentDeploy:

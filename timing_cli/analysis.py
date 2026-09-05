@@ -2,10 +2,28 @@
 
 from __future__ import annotations
 
+import sqlite3
 from collections import Counter
-from datetime import date, datetime, time, timedelta
+from collections.abc import Iterable
+from dataclasses import dataclass, field
+from datetime import UTC, date, datetime, time, timedelta
 
-from timing_cli.models import AppUsage, ProjectSummary, TimeEntrySuggestion
+from timing_cli.models import (
+    MAX_RECONSTRUCTION_PAGE_SIZE,
+    MAX_RECORD_REFERENCES,
+    AppUsage,
+    AssignmentExplanation,
+    EvidenceInterval,
+    ProjectSummary,
+    ReconstructionEvidence,
+    ReconstructionMetrics,
+    ReconstructionPagination,
+    ReconstructionRecord,
+    ReconstructionResponse,
+    ReconstructionSource,
+    ReconstructionWindow,
+    TimeEntrySuggestion,
+)
 from timing_cli.rules import UNASSIGNED, Classification, Classifier
 
 
@@ -28,6 +46,40 @@ def _local_midnight(day: date) -> datetime:
 def local_day_window(day: date) -> tuple[datetime, datetime]:
     """Return timezone-rule-aware local midnights bounding a calendar day."""
     return _local_midnight(day), _local_midnight(day + timedelta(days=1))
+
+
+def resolve_reconstruction_query_window(
+    month: str | None,
+    start: str | None,
+    end: str | None,
+) -> tuple[datetime, datetime]:
+    """Resolve either a local YYYY-MM month or an explicit half-open window."""
+    if month:
+        if start or end:
+            raise ValueError("use --month or explicit --from/--to, not both")
+        try:
+            first_day = date.fromisoformat(f"{month}-01")
+        except ValueError as exc:
+            raise ValueError("month must use YYYY-MM") from exc
+        if first_day.strftime("%Y-%m") != month:
+            raise ValueError("month must use YYYY-MM")
+        next_month = (
+            date(first_day.year + 1, 1, 1)
+            if first_day.month == 12
+            else date(first_day.year, first_day.month + 1, 1)
+        )
+        return _local_midnight(first_day), _local_midnight(next_month)
+
+    if not start or not end:
+        raise ValueError("provide --month or both --from and --to")
+    try:
+        resolved_start = datetime.fromisoformat(start).astimezone()
+        resolved_end = datetime.fromisoformat(end).astimezone()
+    except ValueError as exc:
+        raise ValueError("explicit windows must use ISO-8601 datetimes") from exc
+    if resolved_end <= resolved_start:
+        raise ValueError("reconstruction window end must be after start")
+    return resolved_start, resolved_end
 
 
 def _split_at_local_midnight(start: datetime, end: datetime) -> list[tuple[datetime, datetime]]:
@@ -172,3 +224,275 @@ def aggregate(
 
     suggestions.sort(key=lambda s: s.start)
     return suggestions
+
+
+def _source_reference(source: ReconstructionSource) -> str:
+    return f"{source.source_type}:{source.source_id}"
+
+
+def _source_as_usage(source: ReconstructionSource) -> AppUsage:
+    return AppUsage(
+        id=source.source_id,
+        start=source.start,
+        end=source.end,
+        application_id=source.application_id,
+        app=source.app or "",
+        bundle_id=source.bundle_id,
+        title=source.title,
+        path=source.path,
+        project_id=source.project_id,
+        project_title=source.project_title,
+        project_title_chain=source.project_title_chain,
+        project_title_chain_complete=source.project_title_chain_complete,
+    )
+
+
+def _overlap(left: ReconstructionSource, right: ReconstructionSource) -> bool:
+    return left.start < right.end and right.start < left.end
+
+
+def _assignment_key(explanation: AssignmentExplanation) -> tuple[int | None, str] | None:
+    selected = explanation.selected_assignment
+    if selected is None:
+        return None
+    return selected.project_id, selected.project_title
+
+
+@dataclass
+class _RecordAnalysisState:
+    source: ReconstructionSource
+    assignment: AssignmentExplanation
+    supporting: list[str] = field(default_factory=list)
+    supporting_complete: bool = True
+    covered_by: list[str] = field(default_factory=list)
+    covered_by_complete: bool = True
+    conflicts: list[str] = field(default_factory=list)
+    conflicts_complete: bool = True
+    candidates: list[EvidenceInterval] = field(default_factory=list)
+    candidates_complete: bool = True
+    candidate_cursor: datetime | None = None
+
+    def add_reference(self, collection: list[str], reference: str, complete_field: str) -> None:
+        if reference in collection:
+            return
+        if len(collection) < MAX_RECORD_REFERENCES:
+            collection.append(reference)
+        else:
+            setattr(self, complete_field, False)
+
+    def add_candidate(self, start: datetime, end: datetime) -> None:
+        if end <= start:
+            return
+        if len(self.candidates) < MAX_RECORD_REFERENCES:
+            self.candidates.append(EvidenceInterval(start=start, end=end))
+        else:
+            self.candidates_complete = False
+
+    def cover_with(self, booking: ReconstructionSource) -> None:
+        if self.source.source_type != "activity":
+            return
+        overlap_start = max(self.source.start, booking.start)
+        overlap_end = min(self.source.end, booking.end)
+        if overlap_end <= overlap_start:
+            return
+        cursor = self.candidate_cursor or self.source.start
+        if overlap_start > cursor:
+            self.add_candidate(cursor, overlap_start)
+        self.candidate_cursor = max(cursor, overlap_end)
+
+    def finish_candidates(self) -> None:
+        if self.source.source_type != "activity":
+            return
+        cursor = self.candidate_cursor or self.source.start
+        self.add_candidate(cursor, self.source.end)
+
+
+@dataclass
+class _MetricAccumulator:
+    last_ts: float | None = None
+    activity_end_ts: float = float("-inf")
+    booking_end_ts: float = float("-inf")
+    first_evidence_ts: float | None = None
+    last_evidence_ts: float | None = None
+    raw_activity_seconds: float = 0.0
+    activity_union_seconds: float = 0.0
+    evidence_union_seconds: float = 0.0
+    recorded_service_seconds: float = 0.0
+    uncovered_candidate_seconds: float = 0.0
+
+    def _advance(self, target_ts: float) -> None:
+        if self.last_ts is None:
+            self.last_ts = target_ts
+            return
+        while self.last_ts < target_ts:
+            boundaries = [target_ts]
+            if self.last_ts < self.activity_end_ts < target_ts:
+                boundaries.append(self.activity_end_ts)
+            if self.last_ts < self.booking_end_ts < target_ts:
+                boundaries.append(self.booking_end_ts)
+            boundary = min(boundaries)
+            seconds = boundary - self.last_ts
+            activity_active = self.activity_end_ts > self.last_ts
+            booking_active = self.booking_end_ts > self.last_ts
+            if activity_active:
+                self.activity_union_seconds += seconds
+            if booking_active:
+                self.recorded_service_seconds += seconds
+            if activity_active or booking_active:
+                self.evidence_union_seconds += seconds
+            if activity_active and not booking_active:
+                self.uncovered_candidate_seconds += seconds
+            self.last_ts = boundary
+
+    def add(self, source: ReconstructionSource) -> None:
+        start_ts = source.start.timestamp()
+        end_ts = source.end.timestamp()
+        if end_ts <= start_ts:
+            return
+        self._advance(start_ts)
+        self.first_evidence_ts = (
+            start_ts if self.first_evidence_ts is None else min(self.first_evidence_ts, start_ts)
+        )
+        self.last_evidence_ts = (
+            end_ts if self.last_evidence_ts is None else max(self.last_evidence_ts, end_ts)
+        )
+        if source.source_type == "activity":
+            self.raw_activity_seconds += end_ts - start_ts
+            self.activity_end_ts = max(self.activity_end_ts, end_ts)
+        else:
+            self.booking_end_ts = max(self.booking_end_ts, end_ts)
+
+    def finish(self) -> ReconstructionMetrics:
+        final_ts = max(self.activity_end_ts, self.booking_end_ts)
+        if final_ts != float("-inf"):
+            self._advance(final_ts)
+        elapsed = 0.0
+        if self.first_evidence_ts is not None and self.last_evidence_ts is not None:
+            elapsed = self.last_evidence_ts - self.first_evidence_ts
+        return ReconstructionMetrics(
+            raw_cumulative_activity_seconds=self.raw_activity_seconds,
+            activity_interval_union_seconds=self.activity_union_seconds,
+            elapsed_evidence_span_seconds=elapsed,
+            gap_seconds=max(0.0, elapsed - self.evidence_union_seconds),
+            recorded_service_seconds=self.recorded_service_seconds,
+            uncovered_candidate_seconds=self.uncovered_candidate_seconds,
+        )
+
+
+def reconstruct_evidence(
+    page_sources: list[ReconstructionSource],
+    all_sources: Iterable[ReconstructionSource],
+    classifier: Classifier,
+) -> ReconstructionEvidence:
+    """Analyze one bounded page against a bounded-batch stream for the full window."""
+    if len(page_sources) > MAX_RECONSTRUCTION_PAGE_SIZE:
+        raise ValueError(f"page sources exceed cap of {MAX_RECONSTRUCTION_PAGE_SIZE}")
+
+    states: dict[str, _RecordAnalysisState] = {}
+    for source in page_sources:
+        reference = _source_reference(source)
+        states[reference] = _RecordAnalysisState(
+            source=source,
+            assignment=classifier.explain(
+                _source_as_usage(source),
+                source_reference=reference,
+            ),
+        )
+
+    metrics = _MetricAccumulator()
+    for other in all_sources:
+        metrics.add(other)
+        other_reference = _source_reference(other)
+        other_assignment = classifier.explain(
+            _source_as_usage(other),
+            source_reference=other_reference,
+        )
+        other_key = _assignment_key(other_assignment)
+        for reference, state in states.items():
+            if reference == other_reference or not _overlap(state.source, other):
+                continue
+            if state.source.source_type == "booking" and other.source_type == "activity":
+                state.add_reference(
+                    state.supporting,
+                    other_reference,
+                    "supporting_complete",
+                )
+            elif state.source.source_type == "activity" and other.source_type == "booking":
+                state.add_reference(
+                    state.covered_by,
+                    other_reference,
+                    "covered_by_complete",
+                )
+                state.cover_with(other)
+
+            state_key = _assignment_key(state.assignment)
+            if state_key is not None and other_key is not None and state_key != other_key:
+                state.add_reference(
+                    state.conflicts,
+                    other_reference,
+                    "conflicts_complete",
+                )
+
+    records: list[ReconstructionRecord] = []
+    for source in page_sources:
+        state = states[_source_reference(source)]
+        state.finish_candidates()
+        records.append(
+            ReconstructionRecord(
+                source=state.source,
+                assignment=state.assignment,
+                supporting_activity_references=state.supporting,
+                supporting_activity_references_complete=state.supporting_complete,
+                covered_by_booking_references=state.covered_by,
+                covered_by_booking_references_complete=state.covered_by_complete,
+                conflict_references=state.conflicts,
+                conflict_references_complete=state.conflicts_complete,
+                candidate_intervals=state.candidates,
+                candidate_intervals_complete=state.candidates_complete,
+            )
+        )
+    return ReconstructionEvidence(records=records, metrics=metrics.finish())
+
+
+def reconstruct_window(
+    conn: sqlite3.Connection,
+    start: datetime,
+    end: datetime,
+    classifier: Classifier,
+    *,
+    limit: int,
+    cursor: str | None = None,
+    extracted_at: datetime | None = None,
+    timezone_name: str | None = None,
+) -> ReconstructionResponse:
+    """Build one versioned response page with whole-window metrics."""
+    if start.utcoffset() is None or end.utcoffset() is None:
+        raise ValueError("reconstruction windows must be timezone-aware")
+    if end <= start:
+        raise ValueError("reconstruction window end must be after start")
+
+    from timing_cli.db import iter_reconstruction_sources, list_reconstruction_sources
+
+    page = list_reconstruction_sources(conn, start, end, limit=limit, cursor=cursor)
+    evidence = reconstruct_evidence(
+        page.records,
+        iter_reconstruction_sources(conn, start, end),
+        classifier,
+    )
+    return ReconstructionResponse(
+        window=ReconstructionWindow(
+            timezone=timezone_name or str(start.tzinfo),
+            start=start,
+            end=end,
+            extracted_at=extracted_at or datetime.now(UTC),
+        ),
+        pagination=ReconstructionPagination(
+            limit=limit,
+            total_count=page.total_count,
+            returned_count=page.returned_count,
+            complete=page.complete,
+            next_cursor=page.next_cursor,
+        ),
+        metrics=evidence.metrics,
+        records=evidence.records,
+    )

@@ -2,13 +2,20 @@
 
 from __future__ import annotations
 
+import os
 from datetime import date, datetime
 
 import rich.traceback
 import typer
 
 from timing_cli import __version__, output
-from timing_cli.analysis import aggregate, local_day_window, summarize_by_project
+from timing_cli.analysis import (
+    aggregate,
+    local_day_window,
+    reconstruct_window,
+    resolve_reconstruction_query_window,
+    summarize_by_project,
+)
 from timing_cli.api import TimingApiClient, TimingApiError
 from timing_cli.config import Config, load_config
 from timing_cli.db import (
@@ -19,8 +26,13 @@ from timing_cli.db import (
     list_timing_predicate_rules,
     open_db,
 )
-from timing_cli.models import TimeEntrySuggestion
-from timing_cli.output import render_suggestions, render_summary, render_usage
+from timing_cli.models import MAX_RECONSTRUCTION_PAGE_SIZE, TimeEntrySuggestion
+from timing_cli.output import (
+    render_reconstruction,
+    render_suggestions,
+    render_summary,
+    render_usage,
+)
 from timing_cli.rules import UNASSIGNED, Classifier
 
 rich.traceback.install(show_locals=False)
@@ -395,6 +407,54 @@ def push(
     except TimingApiError as exc:
         output.err_console.print(f"[red]{exc}[/red]")
         raise typer.Exit(1) from exc
+
+
+@app.command()
+def reconstruct(
+    month: str | None = typer.Option(None, "--month", help="Local month in YYYY-MM format"),
+    from_opt: str | None = FromOpt,
+    to_opt: str | None = ToOpt,
+    limit: int = typer.Option(
+        50,
+        "--limit",
+        min=1,
+        max=MAX_RECONSTRUCTION_PAGE_SIZE,
+        help="Maximum source records returned in this page",
+    ),
+    cursor: str | None = typer.Option(None, "--cursor", help="Opaque continuation cursor"),
+    json_output: bool = typer.Option(False, "--json", help="Emit machine-readable JSON"),
+) -> None:
+    """Reconstruct read-only work evidence from bookings and automatic activity."""
+    try:
+        start, end = resolve_reconstruction_query_window(month, from_opt, to_opt)
+    except ValueError as exc:
+        raise typer.BadParameter(str(exc)) from exc
+
+    cfg = _load()
+    try:
+        with open_db(cfg.db_path) as conn:
+            timing_rules = list_timing_predicate_rules(conn)
+            classifier = Classifier(
+                cfg.rules,
+                timing_rules=timing_rules,
+                user_rule_count=cfg.user_rule_count,
+            )
+            response = reconstruct_window(
+                conn,
+                start,
+                end,
+                classifier,
+                limit=limit,
+                cursor=cursor,
+                timezone_name=os.environ.get("TZ") or str(start.tzinfo),
+            )
+    except (TimingDatabaseError, ValueError) as exc:
+        _exit_with_error(str(exc))
+
+    if json_output:
+        output.print_json(response.model_dump(mode="json"))
+    else:
+        render_reconstruction(response)
 
 
 @app.command()

@@ -75,6 +75,36 @@ def test_classifier_applies_timing_predicate_rules_after_config_rules():
     assert classification.project_title_chain == ("Client", "Cognovis")
 
 
+def test_assignment_explanation_identifies_timing_predicate_match():
+    local_id = 2**54 + 79
+    condition = decode_timing_predicate(_field(3, b"webDomain") + _field(4, b"portal"))
+    timing_rule = TimingPredicateRule(
+        project_id=local_id,
+        project_title="Synthetic Portal",
+        project_title_chain=("Synthetic Group", "Synthetic Portal"),
+        conditions=condition,
+    )
+    usage = AppUsage(
+        id=local_id,
+        start=datetime(2026, 7, 5, 9, 0).astimezone(),
+        end=datetime(2026, 7, 5, 9, 30).astimezone(),
+        app="Synthetic Browser",
+        title="portal.example.test",
+    )
+
+    explanation = Classifier([], timing_rules=[timing_rule]).explain(
+        usage,
+        source_reference=f"activity:{local_id}",
+    )
+
+    assert explanation.origin == "timing_predicate"
+    assert explanation.selected_assignment.project_id == local_id
+    assert explanation.rule_id.startswith("timing_predicate:")
+    assert explanation.matched_field == "title"
+    assert explanation.matched_value == "portal.example.test"
+    assert explanation.alternatives[0].project_title == "Synthetic Portal"
+
+
 # Regression guard for a real Timing predicate blob whose UTF-8 values were
 # previously split by ASCII scavenging, leaking protobuf framing bytes.
 def test_regression_real_timing_predicate_decodes_utf8_leaf_strings_without_framing():

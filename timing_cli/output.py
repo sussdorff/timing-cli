@@ -9,7 +9,12 @@ from typing import Any
 from rich.console import Console
 from rich.table import Table
 
-from timing_cli.models import AppUsage, ProjectSummary, TimeEntrySuggestion
+from timing_cli.models import (
+    AppUsage,
+    ProjectSummary,
+    ReconstructionResponse,
+    TimeEntrySuggestion,
+)
 
 
 def _make_consoles(*, no_color: bool) -> tuple[Console, Console]:
@@ -123,3 +128,52 @@ def render_suggestions(
     table.add_section()
     table.add_row("", "", "", f"[bold]{_fmt_duration(total)}[/bold]", "", "")
     console.print(table)
+
+
+def render_reconstruction(response: ReconstructionResponse) -> None:
+    """Render one bounded reconstruction page for a human reader."""
+    metrics = response.metrics
+    metric_table = Table(title=f"Reconstruction ({response.schema_version})")
+    metric_table.add_column("Window metric")
+    metric_table.add_column("Seconds", justify="right")
+    metric_table.add_row(
+        "Raw cumulative activity", f"{metrics.raw_cumulative_activity_seconds:.3f}"
+    )
+    metric_table.add_row(
+        "Activity interval union", f"{metrics.activity_interval_union_seconds:.3f}"
+    )
+    metric_table.add_row("Elapsed evidence span", f"{metrics.elapsed_evidence_span_seconds:.3f}")
+    metric_table.add_row("Evidence gaps", f"{metrics.gap_seconds:.3f}")
+    metric_table.add_row("Recorded service", f"{metrics.recorded_service_seconds:.3f}")
+    metric_table.add_row("Uncovered candidates", f"{metrics.uncovered_candidate_seconds:.3f}")
+    console.print(metric_table)
+
+    records = Table(title="Reconstruction source records")
+    records.add_column("Source", no_wrap=True)
+    records.add_column("Start", no_wrap=True)
+    records.add_column("End", no_wrap=True)
+    records.add_column("Existing project")
+    records.add_column("Selected project")
+    records.add_column("Title")
+    records.add_column("Path")
+    for record in response.records:
+        source = record.source
+        existing = record.assignment.existing_assignment
+        selected = record.assignment.selected_assignment
+        records.add_row(
+            f"{source.source_type}:{source.source_id}",
+            source.start.isoformat(),
+            source.end.isoformat(),
+            existing.project_title if existing else "",
+            selected.project_title if selected else "Unresolved",
+            source.title or "",
+            source.path or "",
+        )
+    console.print(records)
+    pagination = response.pagination
+    console.print(
+        f"Returned {pagination.returned_count} of {pagination.total_count}. "
+        f"Complete: {'yes' if pagination.complete else 'no'}."
+    )
+    if pagination.next_cursor:
+        console.print(f"Next cursor: {pagination.next_cursor}")

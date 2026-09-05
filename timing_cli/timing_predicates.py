@@ -64,6 +64,24 @@ class TimingPredicateRule:
     def matches(self, usage: AppUsage) -> bool:
         return any(condition.matches(usage) for condition in self.conditions)
 
+    def match_evidence(self, usage: AppUsage) -> tuple[str, str, str] | None:
+        """Return the first matching field, source value, and predicate value."""
+        for condition in self.conditions:
+            if condition.field == "applicationID":
+                if usage.application_id in condition.int_values:
+                    return "application_id", str(usage.application_id), str(usage.application_id)
+                continue
+            for matched_field, actual_value in _evidence_values_for_field(condition.field, usage):
+                for criterion in condition.values:
+                    matches = (
+                        _keyword_matches(criterion, actual_value.lower())
+                        if condition.field == "keywords"
+                        else _text_value_matches(criterion, actual_value.lower())
+                    )
+                    if matches:
+                        return matched_field, actual_value, criterion
+        return None
+
 
 def decode_timing_predicate(blob: bytes | None) -> tuple[TimingPredicateCondition, ...]:
     """Extract recognized conditions from a Timing predicate blob."""
@@ -91,6 +109,23 @@ def _haystacks_for_field(field: str, usage: AppUsage) -> tuple[str, ...]:
     else:
         values = (usage.title, usage.path, usage.app, usage.bundle_id)
     return tuple(value.lower() for value in values if value)
+
+
+def _evidence_values_for_field(field: str, usage: AppUsage) -> tuple[tuple[str, str], ...]:
+    if field == "bundleIdentifier":
+        values = (("bundle_id", usage.bundle_id),)
+    elif field in {"filePath", "path"}:
+        values = (("path", usage.path), ("title", usage.title))
+    elif field == "executable":
+        values = (("app", usage.app), ("bundle_id", usage.bundle_id))
+    else:
+        values = (
+            ("title", usage.title),
+            ("path", usage.path),
+            ("app", usage.app),
+            ("bundle_id", usage.bundle_id),
+        )
+    return tuple((name, value) for name, value in values if value)
 
 
 def _keyword_matches(value: str, haystack: str) -> bool:
