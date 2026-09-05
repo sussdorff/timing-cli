@@ -60,6 +60,14 @@ class Config(BaseModel):
         description="Merge same-project slices separated by a gap up to this many seconds",
     )
 
+    use_default_rules: bool = Field(
+        default=True,
+        description=(
+            "Append the packaged default Cognovis classification rules "
+            "(timing_cli.default_rules.DEFAULT_COGNOVIS_RULES) after explicit "
+            "user [[rules]]. Set to false to rely solely on your own rules."
+        ),
+    )
     rules: list[Rule] = Field(default_factory=list)
     project_mappings: dict[str, str] = Field(default_factory=dict)
 
@@ -76,17 +84,31 @@ def load_config(path: Path | None = None) -> Config:
     """Load configuration from disk, falling back to defaults.
 
     Unknown keys are ignored so the config format can evolve without breaking
-    older files.
+    older files. Unless ``use_default_rules = false`` is set, the packaged
+    Cognovis default rules (see ``timing_cli.default_rules``) are appended
+    after any explicit user ``[[rules]]`` -- user rules always win because
+    ``Classifier`` uses first-match-wins ordering. This means an empty or
+    missing config still gets useful defaults.
     """
     cfg_path = path or CONFIG_PATH
     if not cfg_path.exists():
-        return Config()
+        return Config(rules=_with_default_rules([], use_default_rules=True))
 
     with cfg_path.open("rb") as fh:
         data = tomllib.load(fh)
 
-    rules = [Rule(**r) for r in data.pop("rules", [])]
+    user_rules = [Rule(**r) for r in data.pop("rules", [])]
     known = {k: v for k, v in data.items() if k in Config.model_fields}
     if "db_path" in known:
         known["db_path"] = Path(known["db_path"]).expanduser()
+    use_default_rules = known.get("use_default_rules", True)
+    rules = _with_default_rules(user_rules, use_default_rules=use_default_rules)
     return Config(rules=rules, **known)
+
+
+def _with_default_rules(user_rules: list[Rule], *, use_default_rules: bool) -> list[Rule]:
+    if not use_default_rules:
+        return user_rules
+    from timing_cli.default_rules import DEFAULT_COGNOVIS_RULES
+
+    return [*user_rules, *DEFAULT_COGNOVIS_RULES]

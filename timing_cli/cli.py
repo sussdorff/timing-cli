@@ -331,12 +331,35 @@ def push(
 
 @app.command()
 def serve(
+    install: bool = typer.Option(
+        False, "--install", help="Install LaunchAgent for GUI-session auto-start"
+    ),
+    uninstall: bool = typer.Option(
+        False, "--uninstall", help="Remove LaunchAgent and stop background server"
+    ),
     transport: str = typer.Option("stdio", "--transport", help="MCP transport: stdio or http"),
     host: str = typer.Option("127.0.0.1", "--host", help="Bind host for http transport"),
     port: int = typer.Option(8321, "--port", help="Bind port for http transport"),
 ) -> None:
     """Run the Timing MCP server so agents (e.g. Hermes) can query it."""
-    from timing_cli.serve import run_server
+    from timing_cli.serve import install_launch_agent, run_server, uninstall_launch_agent
+
+    if install and uninstall:
+        _exit_with_error("Use either --install or --uninstall, not both.")
+
+    if uninstall:
+        uninstall_launch_agent()
+        console.print("[green]timing serve LaunchAgent removed.[/green]")
+        return
+
+    if install:
+        try:
+            path = install_launch_agent(host=host, port=port)
+        except ValueError as exc:
+            _exit_with_error(str(exc))
+            return
+        console.print(f"[green]timing serve LaunchAgent installed: {path}[/green]")
+        return
 
     try:
         run_server(transport=transport, host=host, port=port)
