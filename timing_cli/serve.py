@@ -9,8 +9,12 @@ Run it via ``timing serve`` (stdio by default, or ``--transport http``).
 
 from __future__ import annotations
 
+import plistlib
 import secrets
+import subprocess
+import sys
 from datetime import date, datetime, time, timedelta
+from pathlib import Path
 from typing import Any
 
 from fastmcp import FastMCP
@@ -29,6 +33,9 @@ from timing_cli.db import (
 from timing_cli.rules import Classifier
 
 mcp: FastMCP = FastMCP("timing-cli")
+
+LAUNCH_AGENT_LABEL = "de.sussdorff.timing-serve"
+LAUNCH_AGENT_PATH = Path.home() / "Library" / "LaunchAgents" / f"{LAUNCH_AGENT_LABEL}.plist"
 
 
 class StaticBearerTokenVerifier(TokenVerifier):
@@ -201,6 +208,58 @@ def run_server(transport: str = "stdio", host: str = "127.0.0.1", port: int = 83
         mcp.run(transport="http", host=host, port=port)
     else:
         raise ValueError(f"Unknown transport: {transport}")
+
+
+def install_launch_agent(*, host: str = "127.0.0.1", port: int = 8321) -> Path:
+    """Install a LaunchAgent that runs ``timing serve --transport http`` at login."""
+    cfg = load_config()
+    if not cfg.resolved_mcp_http_token():
+        raise ValueError(
+            "HTTP transport requires TIMING_MCP_TOKEN or mcp_http_token in the config "
+            "before installing the LaunchAgent"
+        )
+
+    plist = {
+        "Label": LAUNCH_AGENT_LABEL,
+        "ProgramArguments": [
+            sys.executable,
+            "-m",
+            "timing_cli.cli",
+            "serve",
+            "--transport",
+            "http",
+            "--host",
+            host,
+            "--port",
+            str(port),
+        ],
+        "RunAtLoad": True,
+        "KeepAlive": True,
+        "LimitLoadToSessionType": "Aqua",
+        "StandardOutPath": str(Path.home() / "Library" / "Logs" / "timing-serve.log"),
+        "StandardErrorPath": str(Path.home() / "Library" / "Logs" / "timing-serve.err.log"),
+    }
+    LAUNCH_AGENT_PATH.parent.mkdir(parents=True, exist_ok=True)
+    with LAUNCH_AGENT_PATH.open("wb") as handle:
+        plistlib.dump(plist, handle)
+
+    uid = subprocess.run(["id", "-u"], capture_output=True, text=True, check=True).stdout.strip()
+    domain = f"gui/{uid}"
+    subprocess.run(["launchctl", "bootout", domain, str(LAUNCH_AGENT_PATH)], check=False)
+    subprocess.run(["launchctl", "bootstrap", domain, str(LAUNCH_AGENT_PATH)], check=True)
+    subprocess.run(["launchctl", "enable", f"{domain}/{LAUNCH_AGENT_LABEL}"], check=False)
+    return LAUNCH_AGENT_PATH
+
+
+def uninstall_launch_agent() -> None:
+    """Unload and remove the LaunchAgent plist."""
+    if LAUNCH_AGENT_PATH.exists():
+        uid = subprocess.run(
+            ["id", "-u"], capture_output=True, text=True, check=True
+        ).stdout.strip()
+        domain = f"gui/{uid}"
+        subprocess.run(["launchctl", "bootout", domain, str(LAUNCH_AGENT_PATH)], check=False)
+        LAUNCH_AGENT_PATH.unlink(missing_ok=True)
 
 
 if __name__ == "__main__":
