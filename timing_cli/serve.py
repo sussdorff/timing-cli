@@ -9,9 +9,10 @@ Run it via ``timing serve`` (stdio by default, or ``--transport http``).
 
 from __future__ import annotations
 
+import os
 import plistlib
 import secrets
-import subprocess
+import subprocess  # nosec B404 - launchctl install/uninstall only, no shell
 import sys
 from datetime import date, datetime, time, timedelta
 from pathlib import Path
@@ -36,6 +37,16 @@ mcp: FastMCP = FastMCP("timing-cli")
 
 LAUNCH_AGENT_LABEL = "de.sussdorff.timing-serve"
 LAUNCH_AGENT_PATH = Path.home() / "Library" / "LaunchAgents" / f"{LAUNCH_AGENT_LABEL}.plist"
+_LAUNCHCTL = "/bin/launchctl"
+
+
+def _gui_domain() -> str:
+    return f"gui/{os.getuid()}"
+
+
+def _run_launchctl(*args: str, check: bool = False) -> None:
+    """Call launchctl with a fixed absolute path and constant argv shape."""
+    subprocess.run([_LAUNCHCTL, *args], check=check)  # nosec B603
 
 
 class StaticBearerTokenVerifier(TokenVerifier):
@@ -243,22 +254,17 @@ def install_launch_agent(*, host: str = "127.0.0.1", port: int = 8321) -> Path:
     with LAUNCH_AGENT_PATH.open("wb") as handle:
         plistlib.dump(plist, handle)
 
-    uid = subprocess.run(["id", "-u"], capture_output=True, text=True, check=True).stdout.strip()
-    domain = f"gui/{uid}"
-    subprocess.run(["launchctl", "bootout", domain, str(LAUNCH_AGENT_PATH)], check=False)
-    subprocess.run(["launchctl", "bootstrap", domain, str(LAUNCH_AGENT_PATH)], check=True)
-    subprocess.run(["launchctl", "enable", f"{domain}/{LAUNCH_AGENT_LABEL}"], check=False)
+    domain = _gui_domain()
+    _run_launchctl("bootout", domain, str(LAUNCH_AGENT_PATH), check=False)
+    _run_launchctl("bootstrap", domain, str(LAUNCH_AGENT_PATH), check=True)
+    _run_launchctl("enable", f"{domain}/{LAUNCH_AGENT_LABEL}", check=False)
     return LAUNCH_AGENT_PATH
 
 
 def uninstall_launch_agent() -> None:
     """Unload and remove the LaunchAgent plist."""
     if LAUNCH_AGENT_PATH.exists():
-        uid = subprocess.run(
-            ["id", "-u"], capture_output=True, text=True, check=True
-        ).stdout.strip()
-        domain = f"gui/{uid}"
-        subprocess.run(["launchctl", "bootout", domain, str(LAUNCH_AGENT_PATH)], check=False)
+        _run_launchctl("bootout", _gui_domain(), str(LAUNCH_AGENT_PATH), check=False)
         LAUNCH_AGENT_PATH.unlink(missing_ok=True)
 
 
