@@ -70,15 +70,44 @@ same push skips matching existing entries unless `--replace` is passed.
 
 | Command | Description |
 | --- | --- |
-| `timing info` | Database location, recorded date range, token status |
-| `timing projects [--remote] [--archived]` | List projects (local DB or Web API) |
-| `timing usage [--date/--from/--to] [--project ID]` | Raw automatically tracked app usage |
-| `timing summary [--date/--from/--to]` | Total time per project |
-| `timing suggest [--date/--from/--to]` | Aggregated time-entry suggestions (read-only) |
-| `timing push [--date/--from/--to] [--yes] [--replace]` | Create entries via Web API (dry-run by default) |
+| `timing info [--json]` | Database location, recorded date range, token status |
+| `timing projects [--remote] [--archived] [--json]` | List projects (local DB or Web API) |
+| `timing usage [--date/--from/--to] [--project ID] [--json]` | Raw automatically tracked app usage |
+| `timing summary [--date/--from/--to] [--json]` | Total time per project |
+| `timing suggest [--date/--from/--to] [--json]` | Aggregated time-entry suggestions (read-only) |
+| `timing push [--date/--from/--to] [--yes] [--replace] [--json]` | Create entries via Web API (dry-run by default) |
 | `timing reconstruct (--month YYYY-MM | --from ISO --to ISO) [--limit N] [--cursor TOKEN] [--json]` | Page through bookings and automatic-activity reconstruction evidence |
 | `timing serve [--transport] [--host] [--port]` | Run the MCP server |
 | `timing serve --install` / `--uninstall` | Install/remove a LaunchAgent that runs `timing serve --transport http` at login |
+
+### Machine-readable and non-interactive output
+
+Every command that returns data accepts `--json`: `info` returns an object;
+`projects`, `usage`, `summary`, and `suggest` return arrays; `push` returns an
+object containing `dry_run`, `created`, `skipped`, and `suggestions`; and
+`reconstruct` returns the versioned object documented below. `--json` changes
+the output format only: `push` remains a dry-run unless `--yes` is also present.
+
+JSON is written directly to stdout without Rich rendering, tables, or ANSI
+codes. Datetimes are ISO-8601 strings, and local SQLite identifiers are decimal
+strings so values larger than `2^53` remain lossless. The remote
+`projects --remote --json` path returns the Timing Web API project payload.
+
+Human-readable output uses Rich tables. Put the global option before the
+subcommand, for example `timing --no-color summary`; ANSI color is also disabled
+automatically whenever stdout is not a TTY. Non-TTY human output remains a
+human-oriented table, and no progress indicator or spinner is started there, so
+scripts and agents should select `--json` explicitly.
+
+### Window semantics
+
+Date-based CLI queries and MCP tools interpret a local day as the half-open
+interval from local midnight to the next local midnight using the system
+timezone rules. Daylight-saving transitions therefore change elapsed duration:
+in `Europe/Berlin`, `2026-03-29` runs from `2026-03-29T00:00:00+01:00` to
+`2026-03-30T00:00:00+02:00` and spans 23 elapsed hours. Adjacent ordinary days
+span 24 hours. Explicit offset-aware `--from`/`--to` (CLI) or `start`/`end`
+(MCP) endpoints preserve the instants supplied by the caller.
 
 ## Daily workflow
 
@@ -145,7 +174,9 @@ references have the form `booking:<decimal-id>` or `activity:<decimal-id>`.
 Ordering uses the clipped `source.start`, then bookings before activities, then
 the decimal source ID. Project title chains retain the 32 most-specific entries
 and expose `project_title_chain_complete`; assignment alternatives are capped at
-100 and expose `alternatives_complete` and `conflicts_complete`.
+100 and expose `alternatives_complete` and `conflicts_complete`. Per-record
+`candidate_intervals` are capped at 200 and expose
+`candidate_intervals_complete`.
 Every local SQLite identifier is serialized as a decimal string on CLI JSON and
 MCP boundaries, including identifiers larger than JavaScript's safe integer
 range; Python and SQLite continue to use integers internally.
