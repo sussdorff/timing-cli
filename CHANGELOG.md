@@ -15,9 +15,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Versioned, bounded CLI/MCP reconstruction of existing bookings and automatic
   activity with lossless local identifiers, assignment evidence, interval
   metrics, conflicts, and continuation cursors.
-- A credential-free Executive Pack UAT registry restricted to the read-only
-  `--help`, `info`, `usage`, `summary`, `suggest`, and `reconstruct` CLI
-  prefixes.
+- A credential-free Executive Pack UAT registry restricted to `--help` and the
+  read-only local `info`, `projects`, `usage`, `summary`, `suggest`, and
+  `reconstruct` CLI prefixes, including their explicit `--no-color` forms;
+  `push` and `serve` remain excluded.
 - Initial scaffold of `timing-cli`.
 - Read-only access to the local Timing.app SQLite database (`db.py`).
 - Rule-based classification of app usage onto projects (`rules.py`).
