@@ -14,8 +14,16 @@ agentic_acceptance:
         allowed_argv_prefixes:
           - [--help]
           - [info]
+          - [projects]
           - [usage]
           - [summary]
           - [suggest]
           - [reconstruct]
+          - [--no-color, --help]
+          - [--no-color, info]
+          - [--no-color, projects]
+          - [--no-color, usage]
+          - [--no-color, summary]
+          - [--no-color, suggest]
+          - [--no-color, reconstruct]
         cwd: "."
