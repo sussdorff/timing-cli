@@ -14,14 +14,20 @@ import plistlib
 import secrets
 import subprocess  # nosec B404 - launchctl install/uninstall only, no shell
 import sys
-from datetime import date, datetime, time, timedelta
+from datetime import date, datetime
 from pathlib import Path
 from typing import Any
 
 from fastmcp import FastMCP
 from fastmcp.server.auth import AccessToken, TokenVerifier
 
-from timing_cli.analysis import aggregate, summarize_by_project
+from timing_cli.analysis import (
+    aggregate,
+    local_day_window,
+    reconstruct_window,
+    resolve_reconstruction_query_window,
+    summarize_by_project,
+)
 from timing_cli.api import TimingApiClient, TimingApiError
 from timing_cli.config import load_config
 from timing_cli.db import (
@@ -30,6 +36,7 @@ from timing_cli.db import (
     list_projects,
     list_timing_predicate_rules,
     open_db,
+    reconstruction_read_transaction,
 )
 from timing_cli.rules import Classifier
 
@@ -69,8 +76,7 @@ class StaticBearerTokenVerifier(TokenVerifier):
 
 def _day_window(day: str | None) -> tuple[datetime, datetime]:
     d = date.fromisoformat(day) if day else date.today()
-    start = datetime.combine(d, time.min).astimezone()
-    return start, start + timedelta(days=1)
+    return local_day_window(d)
 
 
 def _window(day: str | None, start: str | None, end: str | None) -> tuple[datetime, datetime]:
@@ -87,7 +93,7 @@ def list_timing_projects(include_archived: bool = False) -> list[dict[str, Any]]
     cfg = load_config()
     with open_db(cfg.db_path) as conn:
         projects = list_projects(conn, include_archived=include_archived)
-    return [p.model_dump() for p in projects]
+    return [p.model_dump(mode="json") for p in projects]
 
 
 @mcp.tool
@@ -122,7 +128,7 @@ def daily_project_summary(
         timing_rules = list_timing_predicate_rules(conn)
     classifier = Classifier(cfg.rules, timing_rules=timing_rules)
     summaries = summarize_by_project(slices, classifier, include_unassigned=include_unassigned)
-    return [s.model_dump() for s in summaries]
+    return [s.model_dump(mode="json") for s in summaries]
 
 
 @mcp.tool
@@ -147,6 +153,37 @@ def suggest_time_entries(
         include_unassigned=include_unassigned,
     )
     return [s.model_dump(mode="json") for s in suggestions]
+
+
+@mcp.tool
+def reconstruct_work(
+    month: str | None = None,
+    start: str | None = None,
+    end: str | None = None,
+    limit: int = 50,
+    cursor: str | None = None,
+) -> dict[str, Any]:
+    """Reconstruct bounded read-only booking and automatic-activity evidence."""
+    lo, hi = resolve_reconstruction_query_window(month, start, end)
+    cfg = load_config()
+    with open_db(cfg.db_path) as conn:
+        with reconstruction_read_transaction(conn):
+            timing_rules = list_timing_predicate_rules(conn)
+            classifier = Classifier(
+                cfg.rules,
+                timing_rules=timing_rules,
+                user_rule_count=cfg.user_rule_count,
+            )
+            response = reconstruct_window(
+                conn,
+                lo,
+                hi,
+                classifier,
+                limit=limit,
+                cursor=cursor,
+                timezone_name=os.environ.get("TZ") or str(lo.tzinfo),
+            )
+    return response.model_dump(mode="json")
 
 
 @mcp.tool

@@ -27,6 +27,8 @@ the raw `SQLite.db`** — the server runs locally, next to the database.
 - **Pushes** the resulting suggestions to Timing as real time entries via the
   Web API (with a safe dry-run default).
 - **Serves** all of this over MCP (`timing serve`) for agents.
+- **Reconstructs** bounded read-only work evidence from existing bookings and
+  automatic activity without making a billing decision.
 
 ## Quickstart
 
@@ -40,6 +42,9 @@ timing info
 # Daily project summary and suggested entries (read-only)
 timing summary --date 2026-07-05
 timing suggest --date 2026-07-05
+
+# Reconstruct a synthetic example month as machine-readable evidence
+timing reconstruct --month 2026-07 --limit 50 --json
 
 # Push suggestions to Timing (dry-run first, then --yes)
 export TIMING_API_KEY=...    # from https://web.timingapp.com/integrations/tokens
@@ -65,14 +70,46 @@ same push skips matching existing entries unless `--replace` is passed.
 
 | Command | Description |
 | --- | --- |
-| `timing info` | Database location, recorded date range, token status |
-| `timing projects [--remote] [--archived]` | List projects (local DB or Web API) |
-| `timing usage [--date/--from/--to] [--project ID]` | Raw automatically tracked app usage |
-| `timing summary [--date/--from/--to]` | Total time per project |
-| `timing suggest [--date/--from/--to]` | Aggregated time-entry suggestions (read-only) |
-| `timing push [--date/--from/--to] [--yes] [--replace]` | Create entries via Web API (dry-run by default) |
+| `timing info [--json]` | Database location, recorded date range, token status |
+| `timing projects [--remote] [--local-only] [--archived] [--json]` | List projects (local DB or Web API) |
+| `timing usage [--date/--from/--to] [--project ID] [--json]` | Raw automatically tracked app usage |
+| `timing summary [--date/--from/--to] [--json]` | Total time per project |
+| `timing suggest [--date/--from/--to] [--json]` | Aggregated time-entry suggestions (read-only) |
+| `timing push [--date/--from/--to] [--yes] [--replace] [--json]` | Create entries via Web API (dry-run by default) |
+| `timing reconstruct (--month YYYY-MM | --from ISO --to ISO) [--limit N] [--cursor TOKEN] [--json]` | Page through bookings and automatic-activity reconstruction evidence |
 | `timing serve [--transport] [--host] [--port]` | Run the MCP server |
 | `timing serve --install` / `--uninstall` | Install/remove a LaunchAgent that runs `timing serve --transport http` at login |
+
+### Machine-readable and non-interactive output
+
+Every command that returns data accepts `--json`: `info` returns an object;
+`projects`, `usage`, `summary`, and `suggest` return arrays; `push` returns an
+object containing `dry_run`, `created`, `skipped`, and `suggestions`; and
+`reconstruct` returns the versioned object documented below. `--json` changes
+the output format only: `push` remains a dry-run unless `--yes` is also present.
+
+JSON is written directly to stdout without Rich rendering, tables, or ANSI
+codes. Datetimes are ISO-8601 strings, and local SQLite identifiers are decimal
+strings so values larger than `2^53` remain lossless. The remote
+`projects --remote --json` path returns the Timing Web API project payload.
+`projects --local-only` makes local access explicit and rejects `--remote`; the
+bounded Executive Pack acceptance resource uses this form.
+
+Human-readable output uses Rich tables. Put the global option before the
+subcommand, for example `timing --no-color summary`; ANSI color is also disabled
+automatically whenever stdout is not a TTY. Non-TTY human output remains a
+human-oriented table, and no progress indicator or spinner is started there, so
+scripts and agents should select `--json` explicitly.
+
+### Window semantics
+
+Date-based CLI queries and MCP tools interpret a local day as the half-open
+interval from local midnight to the next local midnight using the system
+timezone rules. Daylight-saving transitions therefore change elapsed duration:
+in `Europe/Berlin`, `2026-03-29` runs from `2026-03-29T00:00:00+01:00` to
+`2026-03-30T00:00:00+02:00` and spans 23 elapsed hours. Adjacent ordinary days
+span 24 hours. Explicit offset-aware `--from`/`--to` (CLI) or `start`/`end`
+(MCP) endpoints preserve the instants supplied by the caller.
 
 ## Daily workflow
 
@@ -95,6 +132,82 @@ timing push --date 2026-07-05 --yes
 Re-running step 4 for the same day skips matching existing entries. Use
 `--replace` only when you deliberately want Timing's API to replace overlapping
 entries in the target window.
+
+## Reconstruction evidence contract
+
+`timing reconstruct` and the MCP `reconstruct_work` tool share the
+`timing.reconstruction.v1` response schema. Both are strictly read-only. Supply
+either a local calendar month or both endpoints of an explicit half-open window:
+
+```bash
+timing reconstruct --month 2026-07 --limit 50 --json
+timing reconstruct \
+  --from 2026-07-14T09:00:00+02:00 \
+  --to 2026-07-14T18:00:00+02:00 \
+  --limit 50 --json
+```
+
+The equivalent MCP tool arguments are
+`reconstruct_work(month="2026-07", limit=50, cursor=None)`.
+
+A booking in that response might identify project `Synthetic Studio`, carry the
+title `Synthetic design review`, and expose a lossless source ID such as
+`"18014398509482083"`.
+
+The top-level fields are:
+
+| Field | Meaning |
+| --- | --- |
+| `schema_version` | Fixed value `timing.reconstruction.v1`. |
+| `window` | Local timezone, exact `[start,end)` endpoints, half-open semantics, and extraction timestamp. |
+| `pagination` | Requested limit, stable order (`start`, `source_type`, `source_id`), SQL total/returned counts, completeness, and opaque `next_cursor`. |
+| `metrics` | Whole-window duration metrics; `scope` is always `window`, independent of the returned page. |
+| `records` | At most `limit` page-scoped booking/activity records with full titles and paths, assignment evidence, relationships, conflicts, and uncovered candidate intervals. |
+
+The maximum page size is 200. Continue with the returned cursor until
+`pagination.complete` is true; this retrieves every source record in the month
+without materializing the month as one list. Source rows use SQL keyset paging,
+and whole-window calculations scan those rows in bounded batches. A cursor is
+bound to a digest of its source-window snapshot; if local Timing data changes,
+the continuation fails as stale and must be restarted from the first page.
+Relationship lists on a record are also capped at 200 and carry their own `*_complete` flag,
+so dense evidence is never silently presented as complete. Stable source
+references have the form `booking:<decimal-id>` or `activity:<decimal-id>`.
+Ordering uses the clipped `source.start`, then bookings before activities, then
+the decimal source ID. Project title chains retain the 32 most-specific entries
+and expose `project_title_chain_complete`; assignment alternatives are capped at
+100 and expose `alternatives_complete` and `conflicts_complete`. Per-record
+`candidate_intervals` are capped at 200 and expose
+`candidate_intervals_complete`.
+Every local SQLite identifier is serialized as a decimal string on CLI JSON and
+MCP boundaries, including identifiers larger than JavaScript's safe integer
+range; Python and SQLite continue to use integers internally.
+
+Each assignment includes the current project, selected/proposed project,
+origin (`existing`, `user_rule`, `packaged_rule`, `timing_predicate`, or
+`unresolved`), stable rule identity, matched source field/value, bounded matching
+alternatives with completeness metadata, conflict evidence, and an uncertainty
+reason when applicable.
+Existing assignments keep precedence, but a differently assigned booking stays
+visible with its original project and proposed alternatives.
+
+Duration fields are deliberately separate and never imply approval to charge:
+
+| Metric | Scope and definition |
+| --- | --- |
+| `raw_cumulative_activity_seconds` | Window-scoped sum of every clipped automatic-activity duration; overlapping/identical slices count separately. |
+| `activity_interval_union_seconds` | Window-scoped union of automatic-activity intervals; overlaps count once. |
+| `elapsed_evidence_span_seconds` | Window-scoped elapsed time from the first evidence start to the last evidence end. |
+| `gap_seconds` | Window-scoped evidence span not covered by either booking or automatic activity. |
+| `recorded_service_seconds` | Window-scoped union of existing booking intervals; overlapping bookings count once. |
+| `uncovered_candidate_seconds` | Window-scoped union of automatic activity outside every existing booking. It is evidence for review, not an approved charge. |
+| `candidate_intervals[].duration_seconds` | Record-scoped uncovered portion of one automatic-activity source. |
+
+Automatic activity covered by a booking appears as supporting evidence for that
+single recorded service. Only uncovered portions appear in `candidate_intervals`.
+Cross-project overlaps are retained as explicit source references rather than
+being assigned to whichever row sorts first. The schema contains no rates,
+rounding, invoicing, or persistent review decisions.
 
 ## Configuration
 
@@ -193,7 +306,7 @@ title = "confluence|jira"
 
 `timing serve` exposes: `list_timing_projects`, `list_app_usage_tool`,
 `daily_project_summary`, `suggest_time_entries`, `create_time_entry` (write),
-`recorded_date_range`.
+`recorded_date_range`, and `reconstruct_work` (read-only, bounded).
 
 HTTP transport requires bearer-token authentication via `TIMING_MCP_TOKEN` or
 `mcp_http_token` in the config. Stdio transport remains local and does not require

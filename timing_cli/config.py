@@ -69,6 +69,7 @@ class Config(BaseModel):
         ),
     )
     rules: list[Rule] = Field(default_factory=list)
+    user_rule_count: int = Field(default=0, exclude=True)
     project_mappings: dict[str, str] = Field(default_factory=dict)
 
     def resolved_token(self) -> str | None:
@@ -92,18 +93,18 @@ def load_config(path: Path | None = None) -> Config:
     """
     cfg_path = path or CONFIG_PATH
     if not cfg_path.exists():
-        return Config(rules=_with_default_rules([], use_default_rules=True))
+        return Config(rules=_with_default_rules([], use_default_rules=True), user_rule_count=0)
 
     with cfg_path.open("rb") as fh:
         data = tomllib.load(fh)
 
     user_rules = [Rule(**r) for r in data.pop("rules", [])]
-    known = {k: v for k, v in data.items() if k in Config.model_fields}
+    known = {k: v for k, v in data.items() if k in Config.model_fields and k != "user_rule_count"}
     if "db_path" in known:
         known["db_path"] = Path(known["db_path"]).expanduser()
     use_default_rules = known.get("use_default_rules", True)
     rules = _with_default_rules(user_rules, use_default_rules=use_default_rules)
-    return Config(rules=rules, **known)
+    return Config(rules=rules, user_rule_count=len(user_rules), **known)
 
 
 def _with_default_rules(user_rules: list[Rule], *, use_default_rules: bool) -> list[Rule]:

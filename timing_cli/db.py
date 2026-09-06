@@ -17,13 +17,24 @@ Key schema facts (Timing2):
 
 from __future__ import annotations
 
+import base64
+import hashlib
+import json
+import math
 import sqlite3
 from collections.abc import Iterator
 from contextlib import contextmanager
+from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 
-from timing_cli.models import AppUsage, Project
+from timing_cli.models import (
+    MAX_PROJECT_TITLE_CHAIN,
+    MAX_RECONSTRUCTION_PAGE_SIZE,
+    AppUsage,
+    Project,
+    ReconstructionSource,
+)
 from timing_cli.timing_predicates import TimingPredicateRule, decode_timing_predicate
 
 
@@ -31,9 +42,82 @@ class TimingDatabaseError(RuntimeError):
     """Raised when the local Timing database cannot be opened or read."""
 
 
+@dataclass(frozen=True)
+class ReconstructionSourcePage:
+    """One SQL-bounded page of reconstruction source rows."""
+
+    records: list[ReconstructionSource]
+    total_count: int
+    returned_count: int
+    complete: bool
+    next_cursor: str | None
+
+
+@dataclass(frozen=True)
+class ReconstructionSnapshot:
+    """Digest and size of one deterministic reconstruction source window."""
+
+    digest: str
+    total_count: int
+
+
 def _epoch_to_local(value: float) -> datetime:
     """Convert a Timing Unix-epoch timestamp to an aware local datetime."""
     return datetime.fromtimestamp(value).astimezone()
+
+
+def _encode_reconstruction_cursor(
+    start_ts: float,
+    source_rank: int,
+    source_id: int,
+    snapshot_digest: str,
+) -> str:
+    payload = json.dumps(
+        {
+            "key": [start_ts.hex(), source_rank, str(source_id)],
+            "snapshot": snapshot_digest,
+            "version": 1,
+        },
+        sort_keys=True,
+        separators=(",", ":"),
+    ).encode()
+    return base64.urlsafe_b64encode(payload).decode().rstrip("=")
+
+
+def _decode_reconstruction_cursor(cursor: str) -> tuple[float, int, int, str]:
+    try:
+        padding = "=" * (-len(cursor) % 4)
+        payload = base64.b64decode(cursor + padding, altchars=b"-_", validate=True)
+        decoded = json.loads(payload)
+        if decoded.get("version") != 1:
+            raise ValueError
+        start_hex, source_rank, source_id_text = decoded["key"]
+        snapshot_digest = decoded["snapshot"]
+        start_ts = float.fromhex(start_hex)
+        source_id = int(source_id_text)
+        if (
+            not math.isfinite(start_ts)
+            or source_rank not in {0, 1}
+            or not isinstance(snapshot_digest, str)
+            or len(snapshot_digest) != 64
+        ):
+            raise ValueError
+    except (KeyError, ValueError, TypeError, json.JSONDecodeError) as exc:
+        raise ValueError("Invalid reconstruction cursor") from exc
+    return start_ts, source_rank, source_id, snapshot_digest
+
+
+@contextmanager
+def reconstruction_read_transaction(conn: sqlite3.Connection) -> Iterator[None]:
+    """Pin all reads for one response to a single SQLite snapshot."""
+    owns_transaction = not conn.in_transaction
+    if owns_transaction:
+        conn.execute("BEGIN")
+    try:
+        yield
+    finally:
+        if owns_transaction:
+            conn.rollback()
 
 
 @contextmanager
@@ -165,7 +249,7 @@ def list_app_usage(
             t.stringValue   AS window_title,
             pa.stringValue  AS doc_path
         FROM AppActivity a
-        JOIN Application app ON app.id = a.applicationID
+        LEFT JOIN Application app ON app.id = a.applicationID
         LEFT JOIN Title   t  ON t.id  = a.titleID
         LEFT JOIN Path    pa ON pa.id = a.pathID
         LEFT JOIN Project p  ON p.id  = a.projectID
@@ -189,7 +273,7 @@ def list_app_usage(
             t.stringValue   AS window_title,
             pa.stringValue  AS doc_path
         FROM AppActivity a
-        JOIN Application app ON app.id = a.applicationID
+        LEFT JOIN Application app ON app.id = a.applicationID
         LEFT JOIN Title   t  ON t.id  = a.titleID
         LEFT JOIN Path    pa ON pa.id = a.pathID
         LEFT JOIN Project p  ON p.id  = a.projectID
@@ -232,6 +316,270 @@ def list_app_usage(
             )
         )
     return usage
+
+
+def _fetch_reconstruction_rows(
+    conn: sqlite3.Connection,
+    start: datetime,
+    end: datetime,
+    *,
+    limit: int,
+    cursor_key: tuple[float, int, int] | None,
+) -> list[sqlite3.Row]:
+    window_params = (end.timestamp(), start.timestamp())
+    params: list[float | int | None] = [
+        *window_params,
+        *window_params,
+        start.timestamp(),
+    ]
+    if cursor_key:
+        cursor_start, cursor_rank, cursor_id = cursor_key
+        params.extend([cursor_start, cursor_start, cursor_rank, cursor_id])
+    else:
+        params.extend([None, None, None, None])
+    params.append(limit)
+
+    return conn.execute(
+        """
+        WITH sources AS (
+            SELECT
+                'booking' AS source_type,
+                0 AS source_rank,
+                task.id AS source_id,
+                task.startDate AS start_ts,
+                task.endDate AS end_ts,
+                task.projectID AS project_id,
+                project.title AS project_title,
+                NULL AS application_id,
+                NULL AS app,
+                NULL AS bundle_id,
+                task.title AS title,
+                NULL AS path,
+                task.notes AS notes
+            FROM TaskActivity task
+            LEFT JOIN Project project ON project.id = task.projectID
+            WHERE task.isDeleted = 0
+              AND task.isRunning = 0
+              AND task.startDate < ?
+              AND task.endDate > ?
+
+            UNION ALL
+
+            SELECT
+                'activity' AS source_type,
+                1 AS source_rank,
+                activity.id AS source_id,
+                activity.startDate AS start_ts,
+                activity.endDate AS end_ts,
+                activity.projectID AS project_id,
+                project.title AS project_title,
+                activity.applicationID AS application_id,
+                COALESCE(application.title, application.bundleIdentifier,
+                         application.executable, 'Unknown') AS app,
+                application.bundleIdentifier AS bundle_id,
+                title.stringValue AS title,
+                path.stringValue AS path,
+                NULL AS notes
+            FROM AppActivity activity
+            LEFT JOIN Application application ON application.id = activity.applicationID
+            LEFT JOIN Title title ON title.id = activity.titleID
+            LEFT JOIN Path path ON path.id = activity.pathID
+            LEFT JOIN Project project ON project.id = activity.projectID
+            WHERE activity.isDeleted = 0
+              AND activity.startDate < ?
+              AND activity.endDate > ?
+        ), ordered_sources AS (
+            SELECT *, MAX(start_ts, ?) AS clipped_start_ts
+            FROM sources
+        )
+        SELECT * FROM ordered_sources
+        WHERE ? IS NULL OR (clipped_start_ts, source_rank, source_id) > (?, ?, ?)
+        ORDER BY clipped_start_ts, source_rank, source_id
+        LIMIT ?
+        """,
+        params,
+    ).fetchall()
+
+
+def _reconstruction_records_from_rows(
+    conn: sqlite3.Connection,
+    rows: list[sqlite3.Row],
+    start: datetime,
+    end: datetime,
+) -> list[ReconstructionSource]:
+    project_ids = {row["project_id"] for row in rows if row["project_id"] is not None}
+    title_chains = _project_title_chains(conn, project_ids)
+    records: list[ReconstructionSource] = []
+    for row in rows:
+        project_title_chain = title_chains.get(row["project_id"], [])
+        records.append(
+            ReconstructionSource(
+                source_type=row["source_type"],
+                source_id=row["source_id"],
+                start=max(_epoch_to_local(row["start_ts"]), start),
+                end=min(_epoch_to_local(row["end_ts"]), end),
+                project_id=row["project_id"],
+                project_title=row["project_title"],
+                project_title_chain=project_title_chain[-MAX_PROJECT_TITLE_CHAIN:],
+                project_title_chain_complete=(
+                    len(project_title_chain) <= MAX_PROJECT_TITLE_CHAIN
+                ),
+                application_id=row["application_id"],
+                app=row["app"],
+                bundle_id=row["bundle_id"],
+                title=row["title"],
+                path=row["path"],
+                notes=row["notes"],
+            )
+        )
+    return records
+
+
+def _count_reconstruction_sources(
+    conn: sqlite3.Connection,
+    start: datetime,
+    end: datetime,
+) -> int:
+    """Count matching source rows in SQL within the caller's read snapshot."""
+    window_params = (end.timestamp(), start.timestamp())
+    row = conn.execute(
+        """
+        SELECT
+            (SELECT COUNT(*) FROM TaskActivity
+             WHERE isDeleted = 0 AND isRunning = 0
+               AND startDate < ? AND endDate > ?)
+          + (SELECT COUNT(*) FROM AppActivity
+             WHERE isDeleted = 0
+               AND startDate < ? AND endDate > ?) AS total_count
+        """,
+        (*window_params, *window_params),
+    ).fetchone()
+    return int(row["total_count"])
+
+
+def reconstruction_snapshot(
+    conn: sqlite3.Connection,
+    start: datetime,
+    end: datetime,
+) -> ReconstructionSnapshot:
+    """Stream a canonical digest of every mutable source field in a window."""
+    digest = hashlib.sha256()
+    digest.update(
+        json.dumps(
+            {"end": end.isoformat(), "start": start.isoformat(), "version": 1},
+            sort_keys=True,
+            separators=(",", ":"),
+        ).encode()
+    )
+    total_count = _count_reconstruction_sources(conn, start, end)
+    cursor_key = None
+    while True:
+        rows = _fetch_reconstruction_rows(
+            conn,
+            start,
+            end,
+            limit=MAX_RECONSTRUCTION_PAGE_SIZE,
+            cursor_key=cursor_key,
+        )
+        records = _reconstruction_records_from_rows(conn, rows, start, end)
+        for row, record in zip(rows, records, strict=True):
+            canonical = json.dumps(
+                {
+                    "record": record.model_dump(mode="json"),
+                    "source_end": float(row["end_ts"]).hex(),
+                    "source_start": float(row["start_ts"]).hex(),
+                },
+                sort_keys=True,
+                separators=(",", ":"),
+            ).encode()
+            digest.update(len(canonical).to_bytes(8, "big"))
+            digest.update(canonical)
+        if len(rows) < MAX_RECONSTRUCTION_PAGE_SIZE:
+            break
+        last = rows[-1]
+        cursor_key = (
+            last["clipped_start_ts"],
+            last["source_rank"],
+            last["source_id"],
+        )
+    return ReconstructionSnapshot(digest=digest.hexdigest(), total_count=total_count)
+
+
+def list_reconstruction_sources(
+    conn: sqlite3.Connection,
+    start: datetime,
+    end: datetime,
+    *,
+    limit: int,
+    cursor: str | None = None,
+    snapshot: ReconstructionSnapshot | None = None,
+) -> ReconstructionSourcePage:
+    """Return one keyset page bound to a deterministic source snapshot."""
+    if not 1 <= limit <= MAX_RECONSTRUCTION_PAGE_SIZE:
+        raise ValueError(f"limit must be between 1 and {MAX_RECONSTRUCTION_PAGE_SIZE}")
+    decoded_cursor = _decode_reconstruction_cursor(cursor) if cursor else None
+    if end <= start:
+        return ReconstructionSourcePage([], 0, 0, True, None)
+
+    with reconstruction_read_transaction(conn):
+        current_snapshot = snapshot or reconstruction_snapshot(conn, start, end)
+        if decoded_cursor and decoded_cursor[3] != current_snapshot.digest:
+            raise ValueError("Stale reconstruction cursor: source window changed")
+        cursor_key = decoded_cursor[:3] if decoded_cursor else None
+        rows = _fetch_reconstruction_rows(
+            conn,
+            start,
+            end,
+            limit=limit + 1,
+            cursor_key=cursor_key,
+        )
+        has_more = len(rows) > limit
+        page_rows = rows[:limit]
+        records = _reconstruction_records_from_rows(conn, page_rows, start, end)
+
+    next_cursor = None
+    if has_more and page_rows:
+        last = page_rows[-1]
+        next_cursor = _encode_reconstruction_cursor(
+            last["clipped_start_ts"],
+            last["source_rank"],
+            last["source_id"],
+            current_snapshot.digest,
+        )
+    return ReconstructionSourcePage(
+        records=records,
+        total_count=current_snapshot.total_count,
+        returned_count=len(records),
+        complete=not has_more,
+        next_cursor=next_cursor,
+    )
+
+
+def iter_reconstruction_sources(
+    conn: sqlite3.Connection,
+    start: datetime,
+    end: datetime,
+    *,
+    batch_size: int = MAX_RECONSTRUCTION_PAGE_SIZE,
+    snapshot: ReconstructionSnapshot | None = None,
+) -> Iterator[ReconstructionSource]:
+    """Stream a full window through capped SQL keyset pages."""
+    with reconstruction_read_transaction(conn):
+        current_snapshot = snapshot or reconstruction_snapshot(conn, start, end)
+        cursor = None
+        while True:
+            page = list_reconstruction_sources(
+                conn,
+                start,
+                end,
+                limit=batch_size,
+                cursor=cursor,
+                snapshot=current_snapshot,
+            )
+            yield from page.records
+            if page.complete:
+                return
+            cursor = page.next_cursor
 
 
 def list_timing_predicate_rules(
