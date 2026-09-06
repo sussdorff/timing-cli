@@ -10,8 +10,9 @@ agentic_acceptance:
         mode: none
         references: []
       boundaries:
-        executable: bin/timing
+        executable: timing
         allowed_argv_prefixes:
+          - [--version]
           - [--help]
           - [info]
           - [projects, --local-only]

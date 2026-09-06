@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import importlib.metadata
 import json
 import sys
 from datetime import datetime, timedelta
@@ -35,7 +36,15 @@ def test_cli_accepts_global_no_color_option():
     result = runner.invoke(app, ["--no-color", "--version"])
 
     assert result.exit_code == 0
-    assert result.output.strip() == "timing-cli 0.1.0"
+    assert result.output.strip() == f'timing-cli {importlib.metadata.version("timing-cli")}'
+
+
+def test_regression_cli_version_matches_distribution_metadata():
+    # Guard against the CLI version drifting from installed package metadata.
+    result = runner.invoke(app, ["--version"])
+
+    assert result.exit_code == 0
+    assert result.output.strip() == f'timing-cli {importlib.metadata.version("timing-cli")}'
 
 
 def test_data_renderers_emit_plain_model_json_without_rich(monkeypatch, capsys):
