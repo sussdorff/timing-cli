@@ -1,36 +1,100 @@
 # Changelog
 
-All notable changes to this project are documented here. The format is based on
-[Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and this project adheres
-to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [v0.2.0] - 2026-09-06
+
+
 
 ### Added
 
-- Plain `--json` output for every data-producing CLI command, with lossless
-  decimal-string local identifiers on CLI and MCP boundaries.
-- A global `--no-color` option, automatic ANSI suppression for non-TTY stdout,
-  and non-TTY-safe handling that avoids progress indicators and spinners.
-- Versioned, bounded CLI/MCP reconstruction of existing bookings and automatic
-  activity with lossless local identifiers, assignment evidence, interval
-  metrics, conflicts, and continuation cursors.
-- A credential-free Executive Pack UAT registry with a CLI resource restricted
-  to `--help` and the read-only local `info`, `projects --local-only`, `usage`,
-  `summary`, `suggest`, and `reconstruct` prefixes, including explicit
-  `--no-color` forms, plus a read-only artifact resource limited to `evidence`,
-  `README.md`, and `CHANGELOG.md` with source, tests, Git metadata, and writes
-  excluded; `push` and `serve` remain outside the CLI allowlist.
-- Initial scaffold of `timing-cli`.
-- Read-only access to the local Timing.app SQLite database (`db.py`).
-- Rule-based classification of app usage onto projects (`rules.py`).
-- Aggregation of app usage into gap-merged time-entry suggestions (`analysis.py`).
-- Timing Web API client for pushing time entries (`api.py`).
-- Typer CLI: `info`, `projects`, `usage`, `summary`, `suggest`, `push`, `serve`.
-- FastMCP server exposing local activity and entry creation to agents (`serve.py`).
+- Ship Cognovis default rules and LaunchAgent MCP serve
+
+- 
+
+feat: Cognovis default rules and LaunchAgent MCP serve
+
+- **timing-pw7:** Align CLI output with terminal standard
+
+- **timing-vk3:** Reconstruct bounded work evidence
+
+
+### Build
+
+- Add push workflow
+
+- **timing-fqk:** Configure advisory CodeRabbit reviews
+
+- 
+
+ci: adopt PR review workflow
+
+
+### Changed
+
+- **beads:** Configure timing-cli for shared-server beads_timing
+
+- **beads:** Switch to repo-local embedded Dolt engine
+
+- **library:** Record lockfile and managed gitignore
+
+- **library:** Record lockfile and managed gitignore
+
+- **library:** Record track-main Base+Daily fleet registration
+
+- 
+
+Delivered the timing-cli Executive Pack for machine-readable CLI output, DST-correct local windows, and read-only bookin
+
+
+### Documentation
+
+- Document reconstruction pack behavior
+
+- Update UAT allowlist changelog
+
+- Describe UAT verification artifact
+
 
 ### Fixed
 
-- Local calendar-day windows in CLI and MCP queries now end at the next local
-  midnight with the applicable timezone offset, including daylight-saving
-  transitions.
+- Tighten predicate decoding and release workflow
+
+- Silence Bandit on LaunchAgent launchctl calls
+
+- **timing-4ip:** Resolve local days across DST
+
+- Stabilize reconstruction continuations
+
+- **timing-vk3:** Preserve SQL count in snapshot paging
+
+- **timing-pw7:** Complete read-only UAT CLI boundary
+
+- Expose read-only UAT verification artifact
+
+- Keep UAT project access local
+
+
+
+## [v0.1.0] - 2026-07-05
+
+
+
+### Added
+
+- Initial timing-cli scaffold with local DB read, aggregation, Web API push and MCP server
+
+- Harden timing-cli release workflow
+
+
+### Changed
+
+- Bd init: initialize beads issue tracking
+
+
+### Tests
+
+- Make cli errors color independent
+
+- Strip ansi from cli output assertions
+
+
