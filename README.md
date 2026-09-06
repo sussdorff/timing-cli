@@ -71,7 +71,7 @@ same push skips matching existing entries unless `--replace` is passed.
 | Command | Description |
 | --- | --- |
 | `timing info [--json]` | Database location, recorded date range, token status |
-| `timing projects [--remote] [--archived] [--json]` | List projects (local DB or Web API) |
+| `timing projects [--remote] [--local-only] [--archived] [--json]` | List projects (local DB or Web API) |
 | `timing usage [--date/--from/--to] [--project ID] [--json]` | Raw automatically tracked app usage |
 | `timing summary [--date/--from/--to] [--json]` | Total time per project |
 | `timing suggest [--date/--from/--to] [--json]` | Aggregated time-entry suggestions (read-only) |
@@ -92,6 +92,8 @@ JSON is written directly to stdout without Rich rendering, tables, or ANSI
 codes. Datetimes are ISO-8601 strings, and local SQLite identifiers are decimal
 strings so values larger than `2^53` remain lossless. The remote
 `projects --remote --json` path returns the Timing Web API project payload.
+`projects --local-only` makes local access explicit and rejects `--remote`; the
+bounded Executive Pack acceptance resource uses this form.
 
 Human-readable output uses Rich tables. Put the global option before the
 subcommand, for example `timing --no-color summary`; ANSI color is also disabled

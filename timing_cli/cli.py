@@ -154,10 +154,17 @@ def info(
 @app.command()
 def projects(
     remote: bool = typer.Option(False, "--remote", help="List projects from the Web API instead"),
+    local_only: bool = typer.Option(
+        False,
+        "--local-only",
+        help="Require local database access and reject Web API access",
+    ),
     archived: bool = typer.Option(False, "--archived", help="Include archived projects"),
     json_output: bool = typer.Option(False, "--json", help="Emit machine-readable JSON"),
 ) -> None:
     """List projects (local database by default, or the Web API with --remote)."""
+    if local_only and remote:
+        raise typer.BadParameter("--local-only cannot be combined with --remote")
     cfg = _load()
     if remote:
         try:

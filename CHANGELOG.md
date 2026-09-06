@@ -16,11 +16,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   activity with lossless local identifiers, assignment evidence, interval
   metrics, conflicts, and continuation cursors.
 - A credential-free Executive Pack UAT registry with a CLI resource restricted
-  to `--help` and the read-only local `info`, `projects`, `usage`, `summary`,
-  `suggest`, and `reconstruct` prefixes, including explicit `--no-color` forms,
-  plus a read-only artifact resource limited to `evidence`, `README.md`, and
-  `CHANGELOG.md` with source, tests, Git metadata, and writes excluded; `push`
-  and `serve` remain outside the CLI allowlist.
+  to `--help` and the read-only local `info`, `projects --local-only`, `usage`,
+  `summary`, `suggest`, and `reconstruct` prefixes, including explicit
+  `--no-color` forms, plus a read-only artifact resource limited to `evidence`,
+  `README.md`, and `CHANGELOG.md` with source, tests, Git metadata, and writes
+  excluded; `push` and `serve` remain outside the CLI allowlist.
 - Initial scaffold of `timing-cli`.
 - Read-only access to the local Timing.app SQLite database (`db.py`).
 - Rule-based classification of app usage onto projects (`rules.py`).

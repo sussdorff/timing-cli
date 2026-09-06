@@ -6,6 +6,7 @@ import re
 import time as time_module
 from contextlib import contextmanager, nullcontext
 from datetime import datetime, timedelta, timezone
+from pathlib import Path
 
 import pytest
 from typer.testing import CliRunner
@@ -119,6 +120,38 @@ def test_summary_rejects_inverted_window():
     assert "Traceback" not in output
 
 
+def test_projects_local_only_rejects_remote_before_client_access(monkeypatch):
+    def fail_load():
+        raise AssertionError("configuration must not load for a rejected remote request")
+
+    monkeypatch.setattr(cli, "_load", fail_load)
+
+    result = runner.invoke(
+        app,
+        ["projects", "--local-only", "--remote", "--json"],
+        color=False,
+    )
+    output = _plain_output(result.output)
+
+    assert result.exit_code != 0
+    assert "--local-only cannot be combined with --remote" in output
+    assert "Traceback" not in output
+
+
+def test_uat_projects_prefix_requires_local_only_guard():
+    config_lines = {
+        line.strip()
+        for line in (Path(__file__).parents[1] / ".claude" / "uat-config.yml")
+        .read_text(encoding="utf-8")
+        .splitlines()
+    }
+
+    assert "- [projects, --local-only]" in config_lines
+    assert "- [--no-color, projects, --local-only]" in config_lines
+    assert "- [projects]" not in config_lines
+    assert "- [--no-color, projects]" not in config_lines
+
+
 @pytest.mark.parametrize(
     ("day", "expected_start", "expected_end", "elapsed_hours"),
     [
@@ -163,7 +196,7 @@ def test_serve_rejects_unknown_transport_without_traceback():
     ("arguments", "expected"),
     [
         (["info", "--json"], dict),
-        (["projects", "--json"], list),
+        (["projects", "--local-only", "--json"], list),
         (["usage", "--json"], list),
         (["summary", "--json"], list),
         (["suggest", "--json"], list),
@@ -204,7 +237,7 @@ def test_push_json_reports_dry_run_and_suggestions(json_command_data):
 @pytest.mark.parametrize(
     ("arguments", "field_path"),
     [
-        (["projects", "--json"], (0, "id")),
+        (["projects", "--local-only", "--json"], (0, "id")),
         (["usage", "--json"], (0, "id")),
         (["summary", "--json"], (0, "project_id")),
         (["suggest", "--json"], (0, "project_id")),
