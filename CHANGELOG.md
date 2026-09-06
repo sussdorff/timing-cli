@@ -1,6 +1,27 @@
 # Changelog
 
 
+## [v0.2.1] - 2026-09-06
+
+
+
+### Changed
+
+- 
+
+chore(release): 0.2.0
+
+- 
+
+Fixed timing-cli version reporting to use installed distribution metadata, added a focused regression test, and correcte
+
+
+### Fixed
+
+- **timing-cpu:** Derive CLI version from package metadata
+
+
+
 ## [v0.2.0] - 2026-09-06
 
 
@@ -44,6 +65,8 @@ ci: adopt PR review workflow
 - 
 
 Delivered the timing-cli Executive Pack for machine-readable CLI output, DST-correct local windows, and read-only bookin
+
+- **release:** 0.2.0
 
 
 ### Documentation
