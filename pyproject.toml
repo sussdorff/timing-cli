@@ -1,6 +1,6 @@
 [project]
 name = "timing-cli"
-version = "0.2.0"
+version = "0.2.1"
 description = "CLI + MCP server for the Timing.app macOS time tracker - reads the local activity database and generates/pushes time entries via the Timing Web API"
 authors = [
     { name = "Malte Sussdorff" },
