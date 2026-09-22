@@ -1,0 +1,170 @@
+# THE KEYWORDS BELOW HAVE NO RUNTIME CONSUMER (clc-6t9h, 2026-08-05).
+#
+# Verifiable state of this file, as two separate facts:
+#
+# 1. This file's PRESENCE is load-bearing. A directory under standards/ that
+#    carries a _triggers.yml is classified and installed as a bundle
+#    (tests/test_standard_bundle_entry_files.py). Do not delete this file.
+# 2. This file's CONTENT is not. No component reads the keyword lists:
+#    skills/inject-standards/runner.py lists _triggers.yml in SKIP_NAMES and
+#    never parses it, and no standards-loader hook is registered in any harness.
+#    So no keyword below injects anything, and listing a file here does not make
+#    its rules mechanically enforced.
+#
+# Delivery contract. A standard reaches a model only where a consuming skill or
+# agent declares `requires_standards:` (NORMATIVE, meta/docs/primitives/standard.md).
+# For bead-hygiene.md that means the primitives declaring it — currently
+# skills/intake and skills/workplan. Its
+# short always-on summary in runtime-configs/AGENTS.md is a separate delivery path,
+# maintained by hand and not derived from this file.
+#
+# The keyword lists are kept as authored trigger vocabulary for a possible future
+# loader. Do not cite an entry here as evidence that a standard is in context.
+#
+# Original header, kept for provenance (its auto-injection claim describes intended,
+# not implemented, behavior):
+#   Auto-generated from ~/.claude/standards/index.yml (CL-4bv recovery).
+#   Per-file triggers for the standards-loader hook. Edit to refine.
+#   Files not listed below are excluded from auto-injection (strict mode).
+
+files:
+  agent-quality-gates.md:
+  - agent
+  - .claude/agents
+  - agent-forge
+  - quality gate
+  agent-session-capture.md:
+  - agent closing
+  - session capture
+  - agent session
+  - open-brain agent
+  bead-spec.md:
+  - beads
+  - bd create
+  - bd show
+  - nlspec
+  - bead spec
+  - spec-driven
+  - software factory
+  - acceptance criteria
+  bead-hygiene.md:
+  - beads
+  - bd create
+  - bd update
+  - intake
+  - decompose
+  - decomposition
+  - split into beads
+  - break into beads
+  - how many beads
+  - epic
+  - sub-bead
+  - child bead
+  - one requirement one bead
+  - over-decomposition
+  code-review.md:
+  - code review
+  - review
+  - quality gate
+  - DoD
+  - wrapper
+  - YAGNI
+  etl-development.md:
+  - etl
+  - migration
+  - sync
+  - adapter
+  - mapper
+  - pvs
+  - data pipeline
+  - Row interface
+  - FHIR mapping
+  - werkzeugbox
+  git-best-practices.md:
+  - rebase
+  - force-push
+  - branch
+  - merge conflict
+  - git workflow
+  - staging
+  pragmatic-development.md:
+  - pragmatic
+  - engineering
+  - best practice
+  - development principles
+  production-feedback.md:
+  - production signal
+  - feedback loop
+  - spec evolution
+  - behavioral drift
+  - specification gap
+  - satisfaction regression
+  - feedback-extractor
+  - feedback extraction
+  - signal classification
+  - production feedback
+  - spec amendment
+  seed-data-parity.md:
+  - seed data
+  - demo data
+  - demo installation
+  - seed parity
+  - integration test
+  - live system
+  - live data
+  - need the live system
+  - live customer system
+  - aidbox
+  - install-pvs
+  - install-data
+  - pvs adapter
+  - mock db
+  - mock tables
+  - adapter seed
+  - fixtures
+  - lane
+  - equivalence contract
+  systematic-debugging.md:
+  - debug
+  - debugging
+  - bug fix
+  - fix attempt
+  - root cause
+  - failing test
+  - error investigation
+  tdd-discipline.md:
+  - tdd
+  - test driven
+  - red green
+  - failing test
+  - test first
+  test-quality.md:
+  - test
+  - unit test
+  - test quality
+  - coverage
+  - mock
+  - assertion
+  uat-config-schema.md:
+  - uat
+  - uat-config
+  - holdout
+  - smoke test
+  - user acceptance
+  - playwright
+  - uv tool install
+  verification-discipline.md:
+  - verification
+  - verify
+  - evidence
+  - completion
+  - done
+  factory-ready.md:
+  - factory-ready
+  - spec quality
+  - autonomous execution
+  - implementation spec
+  production-feedback-example.md:
+  - production feedback example
+  - restic
+  - feedback loop
