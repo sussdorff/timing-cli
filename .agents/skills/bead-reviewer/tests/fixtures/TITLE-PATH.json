@@ -1,0 +1,10 @@
+{
+  "id": "test-TITLE-PATH",
+  "title": "Update auth.py",
+  "description": "Modify the authentication module to fix the session expiry handling and add rate limiting to the login endpoint. The current implementation does not invalidate expired sessions and has no throttling.",
+  "acceptance_criteria": "Expired sessions are invalidated on access. Login endpoint is rate-limited to 5 attempts per minute per IP. Existing tests continue to pass.",
+  "type": "feature",
+  "metadata": {
+    "intent": "Harden the authentication module against session fixation and brute-force attacks."
+  }
+}

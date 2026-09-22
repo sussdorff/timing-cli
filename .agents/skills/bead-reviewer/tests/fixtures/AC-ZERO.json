@@ -1,0 +1,9 @@
+{
+  "id": "test-AC-ZERO",
+  "title": "Users can reset their password via email link",
+  "description": "Implement a password reset flow. When a user requests a password reset, the system sends an email with a time-limited secure link. Clicking the link allows the user to set a new password. The link expires after 24 hours and can only be used once.",
+  "type": "feature",
+  "metadata": {
+    "intent": "Allow users who have forgotten their password to regain account access without contacting support."
+  }
+}

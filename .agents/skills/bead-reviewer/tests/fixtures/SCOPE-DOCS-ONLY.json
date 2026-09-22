@@ -1,0 +1,10 @@
+{
+  "id": "test-SCOPE-DOCS-ONLY",
+  "title": "Document the invoice CSV export feature",
+  "description": "Update the README and user-facing documentation to describe the CSV export feature that was delivered in bead clc-xyz.3. This includes updating the feature overview section, adding a usage example, and updating the changelog. No code changes are required — this bead is purely documentation updates for functionality already shipped.",
+  "acceptance_criteria": "README includes a section explaining the CSV export feature with a usage example. Changelog entry for the feature is present. No outstanding documentation gaps for the CSV export.",
+  "type": "feature",
+  "metadata": {
+    "intent": "Ensure the documentation reflects the CSV export functionality already implemented."
+  }
+}

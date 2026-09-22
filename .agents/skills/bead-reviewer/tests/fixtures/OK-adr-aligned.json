@@ -1,0 +1,11 @@
+{
+  "id": "test-OK-adr-aligned",
+  "title": "Citation auditor supports BVerfG case-number pattern",
+  "description": "Add a pattern module for German Federal Constitutional Court (BVerfG) case numbers to the citation auditor. The module follows the CitationPattern interface from ADR-0002 Decision 7 and ships as a Bun + TypeScript file under `skills/audit-citations/scripts/patterns/bverfg.ts`, consistent with ADR-0002 Decision 1 (runtime) and Decision 2 (inline skill script layout).\n\nThe pattern registers in `patterns/index.ts` and exposes the standard `parse` + `candidateUrls` methods. URL candidates target `bundesverfassungsgericht.de` per Decision 5. No new dependencies, no new runtime, no new auth surface.\n\n## MoC\n\n| # | AC | MoC | Evidence |\n|---|---|---|---|\n| 1 | BVerfG pattern parses real case numbers | unit | jest test under tests/patterns/bverfg.test.ts |\n| 2 | Pattern registered in patterns/index.ts | review | grep finds the registration |\n| 3 | URL candidates point at bundesverfassungsgericht.de | unit | jest assertion on candidateUrls output |",
+  "acceptance_criteria": "- patterns/bverfg.ts exports a CitationPattern that parses BVerfG case numbers (e.g. 1 BvR 123/45)\n- The pattern is registered in patterns/index.ts and returned by the registry\n- candidateUrls() returns at least one URL on bundesverfassungsgericht.de for a parsed citation",
+  "type": "feature",
+  "metadata": {
+    "intent": "Extend the citation auditor with a new jurisdiction (BVerfG) following ADR-0002. Scope IN: new pattern module, registry entry. Scope OUT: snippet-guard changes, new fetchers, new auth flows.",
+    "contracts": "Implements the CitationPattern interface from ADR-0002 Decision 7. Runtime: Bun + TypeScript per ADR-0002 Decision 1."
+  }
+}

@@ -1,0 +1,10 @@
+{
+  "id": "test-SCOPE-FORWARD-DEP",
+  "title": "Citation cache layer for the audit pipeline",
+  "description": "Build a caching layer that stores fetched citation source pages keyed by URL and content hash. This will be used by future bead X once it is created to support incremental re-audits without re-fetching unchanged sources. The cache enables future bead Y (multi-repo audit mode) once that work is planned. For now the cache is built but not integrated into any existing pipeline.",
+  "acceptance_criteria": "Cache module stores and retrieves fetched pages by URL key. TTL of 7 days is enforced. Cache entries are invalidated when content hash changes.",
+  "type": "feature",
+  "metadata": {
+    "intent": "Provide a reusable caching layer for future citation audit pipeline work."
+  }
+}

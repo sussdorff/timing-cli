@@ -1,0 +1,11 @@
+{
+  "id": "test-OVERLAY-AIDBOX-MISSING",
+  "title": "Migrate Encounter resource to add CareTeam reference field",
+  "description": "Add a CareTeam reference field to the Aidbox Encounter resource. Update the FHIR profile, adjust search parameter indexing, and migrate existing Encounter records. This change affects all tenants.\n\n## MoC\n\n| # | AC | MoC | Evidence |\n|---|---|---|---|\n| 1 | CareTeam field present on new Encounter records | integ | Aidbox API call verifies field |\n| 2 | Existing Encounter records migrated without data loss | integ | migration script + audit log |",
+  "acceptance_criteria": "- New Encounter records include a CareTeam reference field\n- Existing Encounter records are migrated with zero data loss\n- Search by CareTeam reference returns correct results",
+  "type": "feature",
+  "metadata": {
+    "intent": "Support care team attribution on Encounter resources. Scope IN: Aidbox profile update, migration script, search index. Scope OUT: UI changes, reporting.",
+    "constraints": "Must run migration in off-peak hours."
+  }
+}

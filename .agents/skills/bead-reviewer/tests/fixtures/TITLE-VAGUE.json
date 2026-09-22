@@ -1,0 +1,10 @@
+{
+  "id": "test-TITLE-VAGUE",
+  "title": "Improve Performance",
+  "description": "Address performance problems in the application. The system has been slow in some areas and users have complained. We should look into what can be improved and make the necessary changes to speed things up.",
+  "acceptance_criteria": "The application is faster than before. Response times are improved.",
+  "type": "feature",
+  "metadata": {
+    "intent": "Make the application perform better."
+  }
+}

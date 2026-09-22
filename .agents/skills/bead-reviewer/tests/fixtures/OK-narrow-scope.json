@@ -1,0 +1,10 @@
+{
+  "id": "test-OK-narrow-scope",
+  "title": "Refresh-token rotation invalidates the previous token",
+  "description": "When a client exchanges a refresh token for a new access token, the previous refresh token must be rejected on subsequent use. The rotation closes the replay window that exists in the current implementation.\n\n## MoC\n\n| # | AC | MoC | Evidence |\n|---|---|---|---|\n| 1 | Old refresh token is rejected after rotation | unit | jest test on TokenService.rotate |\n| 2 | New refresh token works exactly once | unit | jest test on TokenService.rotate |\n| 3 | Concurrent rotation attempts: second one fails | integ | concurrency test with two simulated clients |",
+  "acceptance_criteria": "- After rotation, the original refresh token returns 401 on use\n- The newly issued refresh token can be exchanged exactly once\n- Two concurrent rotation requests for the same token: one succeeds, the other returns 409",
+  "type": "feature",
+  "metadata": {
+    "intent": "Eliminate the replay window in refresh-token handling. Scope IN: rotation semantics in TokenService.rotate, persistence of issued/revoked state. Scope OUT: token expiry policy, OAuth consent flow, session management."
+  }
+}

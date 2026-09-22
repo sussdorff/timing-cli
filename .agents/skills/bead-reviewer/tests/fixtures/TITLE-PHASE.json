@@ -1,0 +1,10 @@
+{
+  "id": "test-TITLE-PHASE",
+  "title": "Setup Database",
+  "description": "Define the production PostgreSQL database setup so the application can persist user accounts and audit records reliably from day one.\n\n## Means of Compliance\n| # | Acceptance Criterion | MoC | Evidence |\n|---|----------------------|-----|----------|\n| 1 | Database is configured and accessible. | integ | tests/integration/test_database_bootstrap.py |\n| 2 | Application can connect and run migrations successfully. | smoke | scripts/smoke/database-bootstrap.sh |",
+  "acceptance_criteria": "Database is configured and accessible. Application can connect and run migrations successfully.",
+  "type": "feature",
+  "metadata": {
+    "intent": "Establish the foundational database layer for the application."
+  }
+}
