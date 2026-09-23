@@ -1,0 +1,10 @@
+{
+  "id": "test-OK-outcome-title",
+  "title": "Users can register with email and password",
+  "description": "Add a registration flow that lets new users create accounts using an email and password. The flow stores the user record, hashes the password with bcrypt, and sends a verification email. Failures (duplicate email, weak password, mail-service unavailable) return structured error envelopes.\n\n## MoC\n\n| # | AC | MoC | Evidence |\n|---|---|---|---|\n| 1 | New user can register | e2e | playwright spec exercising /register |\n| 2 | Duplicate email is rejected | unit | jest test on RegisterService |\n| 3 | Weak password is rejected | unit | jest test on PasswordPolicy |",
+  "acceptance_criteria": "- New user submits email+password and receives a verification email\n- Duplicate email returns 409 with structured error\n- Password below policy minimum returns 422 with structured error",
+  "type": "feature",
+  "metadata": {
+    "intent": "Enable self-service account creation. Scope IN: email/password registration, password hashing, verification mail. Scope OUT: OAuth, password reset, account deletion."
+  }
+}

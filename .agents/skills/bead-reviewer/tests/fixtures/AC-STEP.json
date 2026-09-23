@@ -1,0 +1,10 @@
+{
+  "id": "test-AC-STEP",
+  "title": "User email validation on registration",
+  "description": "Add server-side email validation to the user registration flow. Currently the system accepts malformed email addresses, which causes downstream delivery failures. The validation should run before the user record is persisted.",
+  "acceptance_criteria": "Write a function that validates user email format using a regex pattern that covers RFC 5321 addresses. Call this function from the registration controller before saving the user record.",
+  "type": "feature",
+  "metadata": {
+    "intent": "Prevent malformed email addresses from entering the user database."
+  }
+}

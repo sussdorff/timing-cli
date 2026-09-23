@@ -1,0 +1,65 @@
+#!/bin/sh
+# bd-wrapper — PATH-shim that extends 'bd lint' with --check=architecture-contracts support.
+# BD_WRAPPER_MARKER — used by wrapper instances to detect and skip each other in PATH walk.
+#
+# Install: copy this script (and bd_lint_contracts.py) to ~/.local/bin/ via install-bd-wrapper.sh.
+# ~/.local/bin must precede the real bd binary in PATH.
+#
+# Compatible with POSIX sh, bash, and zsh.
+#
+# How it works:
+#   1. Intercepts: bd lint --check=architecture-contracts [args...]
+#      -> delegates to bd_lint_contracts.py in the same directory as this script
+#   2. Everything else -> forwarded to the real bd binary discovered from PATH
+
+# ---------------------------------------------------------------------------
+# Locate this script's real path (resolve symlinks) and its directory
+# ---------------------------------------------------------------------------
+_SELF=$(readlink -f "$0" 2>/dev/null || realpath "$0" 2>/dev/null || echo "$0")
+_SCRIPT_DIR=$(dirname "$_SELF")
+
+# ---------------------------------------------------------------------------
+# Handle bd lint --check=architecture-contracts early (no real bd needed)
+# ---------------------------------------------------------------------------
+if [ "$1" = "lint" ] && [ "$2" = "--check=architecture-contracts" ]; then
+    _CONTRACTS_SCRIPT="$_SCRIPT_DIR/bd_lint_contracts.py"
+    if [ ! -f "$_CONTRACTS_SCRIPT" ]; then
+        echo "bd-wrapper: ERROR — bd_lint_contracts.py not found at $_CONTRACTS_SCRIPT" >&2
+        exit 1
+    fi
+    shift 2  # remove 'lint' and '--check=architecture-contracts'
+    exec python3 "$_CONTRACTS_SCRIPT" "$@"
+fi
+
+# ---------------------------------------------------------------------------
+# For all other commands, find and delegate to the real bd binary.
+#
+# Strategy: walk PATH entries in order, skip:
+#   (a) any entry that resolves to this exact script ($SELF), and
+#   (b) any other bd-wrapper copy — detected by the BD_WRAPPER_MARKER string.
+# This prevents mutual exec loops when multiple wrapper copies exist in PATH.
+# ---------------------------------------------------------------------------
+_REAL_BD=""
+_old_ifs="$IFS"
+IFS=:
+for _dir in $PATH; do
+    IFS="$_old_ifs"
+    [ -z "$_dir" ] && continue
+    _candidate="$_dir/bd"
+    [ -x "$_candidate" ] || continue
+    # Skip if same file as ourselves (symlink-resolved)
+    _resolved=$(readlink -f "$_candidate" 2>/dev/null || realpath "$_candidate" 2>/dev/null || echo "$_candidate")
+    [ "$_resolved" = "$_SELF" ] && { IFS=:; continue; }
+    # Skip other bd-wrapper copies (copies installed elsewhere in PATH)
+    grep -qF 'BD_WRAPPER_MARKER' "$_candidate" 2>/dev/null && { IFS=:; continue; }
+    _REAL_BD="$_candidate"
+    break
+done
+IFS="$_old_ifs"
+
+if [ -z "$_REAL_BD" ]; then
+    echo "bd-wrapper: ERROR — cannot find real bd binary in PATH (excluding wrapper copies)" >&2
+    exit 1
+fi
+
+exec "$_REAL_BD" "$@"

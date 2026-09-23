@@ -1,0 +1,10 @@
+{
+  "id": "test-TITLE-ACTIVITY",
+  "title": "Implement OAuth Handler",
+  "description": "Build the OAuth 2.0 handler module that manages the authorization code flow, token exchange, and session binding for third-party identity providers.",
+  "acceptance_criteria": "OAuth handler processes authorization codes and returns valid session tokens. Token refresh is supported. Errors are returned as structured JSON.",
+  "type": "feature",
+  "metadata": {
+    "intent": "Add OAuth 2.0 support so users can authenticate via external identity providers."
+  }
+}

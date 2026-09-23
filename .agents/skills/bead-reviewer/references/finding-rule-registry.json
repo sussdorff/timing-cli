@@ -1,0 +1,69 @@
+{
+  "schema_version": 1,
+  "rules": [
+    {
+      "rule_id": "ADHOC-UNCLASSIFIED",
+      "description": "A demonstrated finding does not yet fit a registered cross-cutting or resolved contract rule."
+    },
+    {
+      "rule_id": "BOUNDARY-OWNERSHIP-CONFLICT",
+      "description": "The proposed work conflicts with an established repository or cross-repository ownership boundary."
+    },
+    {
+      "rule_id": "DECISION-DOMAIN-CONTRACT-MISSING",
+      "description": "Execution depends on an unresolved domain or data-contract decision named as external to the bead."
+    },
+    {
+      "rule_id": "DECISION-PREMISE-STALE",
+      "description": "A decision bead's premise is outdated because the repository already contains behavior, a model, or a recommendation bearing on the open question. Mere repository presence only means the premise changed and the decision must be reframed against current reality; the question is 'answered' only when an authoritative document or demonstrably accepted behavior settles it, since existing code may be provisional, accidental, or the very reason the decision exists. Distinct from REPO-SCOPE-ALREADY-LANDED, which concerns implementation work rather than an open decision."
+    },
+    {
+      "rule_id": "DECISION-UI-DESIGN-MISSING",
+      "description": "Execution depends on an unresolved user-interface design decision."
+    },
+    {
+      "rule_id": "REPO-PATH-STALE",
+      "description": "A specification evidence or implementation path no longer exists at the stated repository location."
+    },
+    {
+      "rule_id": "REPO-SCOPE-ALREADY-LANDED",
+      "description": "Material scope described as future work is already present in the target repository."
+    },
+    {
+      "rule_id": "SPEC-BEHAVIOR-UNDEFINED",
+      "description": "The bead's own scope leaves a materially behavior-changing choice (failure policy, persistence, ownership split, or slice boundary) undefined and names no owning decision or Scope-Out, so it permits multiple materially different implementations of its stated outcome. Distinct from DECISION-DOMAIN-CONTRACT-MISSING, which depends on a named external decision."
+    },
+    {
+      "rule_id": "SPEC-DUPLICATE-CONTRACT",
+      "description": "The bead duplicates an existing specification or authoritative contract instead of defining a distinct delta."
+    },
+    {
+      "rule_id": "SPEC-IMPL-SURFACE-UNBOUND",
+      "description": "Neither the bead, an authoritative contract, nor the repository binds a concrete executable surface (port, API, schema, protocol, or test double) for the claimed work, so an implementer has no dispatch contract to build against. A greenfield feature that fully specifies its surface in the bead is out of scope, since a new capability naturally has no pre-existing repository surface. When only the MIRA Workspace Surface section is missing, MIRA-WORKSPACE-SURFACE applies instead."
+    },
+    {
+      "rule_id": "STRUCTURE-FOLD-CANDIDATE",
+      "description": "The bead is structurally better represented by folding it into an existing parent or sibling outcome."
+    },
+    {
+      "rule_id": "STRUCTURE-GRAPH-DRIFT",
+      "description": "The bead's stated hierarchy, child set, or implementation spine makes a claim the live bead graph contradicts: a wrong child count, a stated child status that does not match live status, a child that has been reparented, or a spine bead owned by another epic. A closed child is not drift on its own; mixed open and closed children are the normal state of an epic."
+    },
+    {
+      "rule_id": "STRUCTURE-MISSING-DEPENDENCY",
+      "description": "A blocker or decision edge the bead's text treats as required is absent from the dependency graph, so the consuming and producing work can advance with conflicting assumptions."
+    },
+    {
+      "rule_id": "STRUCTURE-PARENT-SCOPE-CONFLICT",
+      "description": "The bead's declared outcome contradicts or is explicitly excluded by its native parent's scope, so the parent-child relation encodes conflicting scope rather than a coherent decomposition."
+    },
+    {
+      "rule_id": "TYPE-DEFECT-MISCLASSIFIED",
+      "description": "A visible defect is filed as a chore or task instead of a bug, so its verification and regression obligations do not match its actual risk."
+    },
+    {
+      "rule_id": "TYPE-FEATURE-NOT-USER-VISIBLE",
+      "description": "A feature is classified as user-visible even though its stated outcome is internal or backend-only."
+    }
+  ]
+}

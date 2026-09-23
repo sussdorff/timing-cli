@@ -1,0 +1,10 @@
+{
+  "id": "test-OK-observable-acs",
+  "title": "Audit log records failed login attempts",
+  "description": "When authentication fails, the system writes an audit record with the source IP, attempted username, failure reason, and timestamp. The record is retained for 90 days and can be queried by the security team via the audit API.\n\n## MoC\n\n| # | AC | MoC | Evidence |\n|---|---|---|---|\n| 1 | Failed login writes audit record | unit | jest test on AuthService |\n| 2 | Audit record is queryable by username | integ | API contract test |\n| 3 | Records older than 90 days are purged | unit | jest test on RetentionJob |",
+  "acceptance_criteria": "- A failed login attempt creates exactly one audit record with source_ip, username, reason, timestamp\n- The audit API returns failed-login records filtered by username\n- Records older than 90 days are not returned by the audit API",
+  "type": "feature",
+  "metadata": {
+    "intent": "Provide a deterministic audit trail of authentication failures for the security team. Scope IN: failed login records, retention, query API. Scope OUT: real-time alerting, SIEM export."
+  }
+}

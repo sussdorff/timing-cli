@@ -1,0 +1,10 @@
+{
+  "id": "test-AC-REF",
+  "title": "Invoice export supports CSV format",
+  "description": "Extend the invoice export capability to include a CSV format option in addition to the existing PDF export. The CSV should include all fields visible in the invoice list view. The export should honour any active filters.",
+  "acceptance_criteria": "See bead clc-abc.1 for the acceptance criteria. The implementation must satisfy all criteria documented in that bead.",
+  "type": "feature",
+  "metadata": {
+    "intent": "Give users a machine-readable export format suitable for import into spreadsheet applications."
+  }
+}

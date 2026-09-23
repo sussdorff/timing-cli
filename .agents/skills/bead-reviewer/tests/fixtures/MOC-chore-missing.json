@@ -1,0 +1,7 @@
+{
+  "id": "test-MOC-chore-missing",
+  "title": "Remove deprecated billing export config key",
+  "description": "Remove the deprecated `billing_export_legacy_timeout_ms` key from service configuration files now that all services read `billing_export_timeout_ms` instead.",
+  "type": "chore",
+  "metadata": {}
+}

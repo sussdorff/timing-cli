@@ -1,0 +1,10 @@
+{
+  "id": "test-SCOPE-EPIC",
+  "title": "Launch the customer portal",
+  "description": "Build and deploy the customer portal. This covers the full authentication system including OAuth, MFA, and SSO. And also the billing module with Stripe integration, subscription management, and invoice generation. As well as the notification center with email, SMS, and in-app notifications for all system events. Each module requires independent stakeholder review and has separate go-live criteria.",
+  "acceptance_criteria": "Users can log in via OAuth and MFA. Billing works end-to-end including Stripe webhooks. Email, SMS, and in-app notifications are delivered. All three modules pass their respective UAT sessions.",
+  "type": "feature",
+  "metadata": {
+    "intent": "Deliver a fully functional customer portal covering auth, billing, and notifications."
+  }
+}

@@ -1,0 +1,8 @@
+{
+  "id": "test-NLSPEC-task-missing",
+  "title": "Invoice export query uses the shared filter builder",
+  "description": "Refactor the invoice export query path so it reuses the shared billing filter builder and keeps export results aligned with the billing workspace filters.\n\n## Means of Compliance\n| # | Acceptance Criterion | MoC | Evidence |\n|---|----------------------|-----|----------|\n| 1 | CSV export applies the same filters as the billing workspace list. | integ | tests/billing/test_invoice_export_filters.py |\n| 2 | Export path uses the shared filter builder instead of its local duplicate. | review | billing/export/query_builder.py |",
+  "acceptance_criteria": "- CSV export applies the same filters as the billing workspace list.\n- Export path uses the shared filter builder instead of its local duplicate.",
+  "type": "task",
+  "metadata": {}
+}

@@ -1,0 +1,13 @@
+{
+  "id": "test-C3-large-task-no-moc",
+  "title": "Implement batch export API",
+  "description": "## Intent\nGoal: Add batch export endpoint for data downloads.\nScope-In: POST /api/export, streaming response, auth check.\nScope-Out: UI changes, CSV format.",
+  "acceptance_criteria": "- AK-1: POST /api/export returns 200 with streaming data",
+  "type": "task",
+  "issue_type": "task",
+  "metadata": {
+    "routing": {
+      "routed_effort": "large"
+    }
+  }
+}
