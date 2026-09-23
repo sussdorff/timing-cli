@@ -1,0 +1,9 @@
+# Auto-generated from ~/.claude/standards/index.yml (CL-4bv recovery).
+# Per-file triggers for the standards-loader hook. Edit to refine.
+# Files not listed below are excluded from auto-injection (strict mode).
+
+files:
+  conventional-commits.md:
+  - commit
+  - git
+  - conventional

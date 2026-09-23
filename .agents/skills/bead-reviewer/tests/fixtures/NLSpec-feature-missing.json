@@ -1,0 +1,8 @@
+{
+  "id": "test-NLSPEC-feature-missing",
+  "title": "Users can export invoices as CSV",
+  "description": "Add a CSV export action to the billing workspace so finance users can download the currently filtered invoice list without leaving the application.\n\n## Means of Compliance\n| # | Acceptance Criterion | MoC | Evidence |\n|---|----------------------|-----|----------|\n| 1 | Finance users can download the currently filtered invoice list as CSV. | e2e | tests/billing/invoice-export.spec.ts |\n| 2 | Exported CSV preserves invoice number, due date, status, and gross total columns. | integ | tests/billing/test_invoice_export_columns.py |",
+  "acceptance_criteria": "- Finance users can download the currently filtered invoice list as CSV.\n- Exported CSV preserves invoice number, due date, status, and gross total columns.",
+  "type": "feature",
+  "metadata": {}
+}

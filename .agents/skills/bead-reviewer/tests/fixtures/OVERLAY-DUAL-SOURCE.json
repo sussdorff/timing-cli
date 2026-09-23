@@ -1,0 +1,11 @@
+{
+  "id": "test-OVERLAY-DUAL-SOURCE",
+  "title": "Add invoice export to billing dashboard",
+  "description": "Add a CSV export button to the billing dashboard. Export includes all invoices for the selected date range.\n\nAPI: GET /api/billing/invoices/export?from=&to=\n\nNo Aidbox-Schema-Impact. No IG version dependency.\n\nOut of Scope: PDF export, email delivery, scheduled exports.",
+  "acceptance_criteria": "- Billing dashboard shows an Export CSV button\n- Clicking Export downloads a CSV with all invoices in the selected date range\n- CSV includes: invoice ID, date, amount, patient name, status",
+  "type": "feature",
+  "metadata": {
+    "intent": "Allow billing staff to export invoice data for external accounting tools. Scope IN: CSV export endpoint, UI button. Scope OUT: PDF, email, scheduled jobs.",
+    "constraints": ""
+  }
+}

@@ -1,0 +1,10 @@
+{
+  "id": "test-OK-setup-with-outcome",
+  "title": "Setup Database so users can register",
+  "description": "Provision the PostgreSQL instance, schemas, and roles the registration feature depends on. The database must accept the migration set from clc-prev.3 and pass the connection smoke test from clc-prev.4 before this bead closes.\n\n## MoC\n\n| # | AC | MoC | Evidence |\n|---|---|---|---|\n| 1 | App connects via the configured role | integ | smoke test script returns 0 |\n| 2 | Migrations apply cleanly | integ | rake db:migrate exits 0 |",
+  "acceptance_criteria": "- Application can open a connection using the configured role and run a SELECT 1 successfully\n- Migration set from clc-prev.3 applies without error",
+  "type": "feature",
+  "metadata": {
+    "intent": "Make the database substrate ready for the registration flow. Scope IN: PostgreSQL instance, schemas, app role, migration baseline. Scope OUT: backup, replication, monitoring."
+  }
+}

@@ -1,0 +1,6 @@
+interface:
+  display_name: "Context Handoff"
+  short_description: "Preserve session context across a fresh chat"
+  default_prompt: "Use $context-handoff to preserve this session before I start a fresh chat with /clear."
+policy:
+  allow_implicit_invocation: false

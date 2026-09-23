@@ -1,0 +1,8 @@
+{
+  "id": "test-PASS3-TYPE-EXEMPT-CHORE",
+  "title": "Remove deprecated config key from all services",
+  "description": "Remove the deprecated `legacy_timeout_ms` key from service configs. It was superseded by `timeout_ms` in v2.3. All references must be cleaned up.",
+  "acceptance_criteria": "- All service configs no longer contain `legacy_timeout_ms`\n- CI passes after config cleanup",
+  "type": "chore",
+  "metadata": {}
+}

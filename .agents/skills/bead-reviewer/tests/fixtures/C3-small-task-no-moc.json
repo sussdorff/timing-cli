@@ -1,0 +1,13 @@
+{
+  "id": "test-C3-small-task-no-moc",
+  "title": "Fix typo in error message",
+  "description": "## Intent\nGoal: Fix typo 'recieve' -> 'receive' in validation error.\nScope-In: error_messages.py line 42.\nScope-Out: All other strings.",
+  "acceptance_criteria": "- AK-1: error message reads 'receive'",
+  "type": "task",
+  "issue_type": "task",
+  "metadata": {
+    "routing": {
+      "routed_effort": "small"
+    }
+  }
+}

@@ -1,0 +1,11 @@
+{
+  "id": "test-OVERLAY-MIRA-REDUCED",
+  "title": "Add Cave widget to patient workspace",
+  "description": "Add a Cave (contraindication/allergy alert) widget to the patient workspace. The widget shows active cave entries from Aidbox and allows practitioners to add new cave flags.\n\nAPI: POST /api/practitioner/cave/add, GET /api/practitioner/cave/list\nDatabase: reads cave_catalog, writes to proposal_table\n\n## MoC\n\n| # | AC | MoC | Evidence |\n|---|---|---|---|\n| 1 | Cave widget renders existing cave entries | E2E | apps/web/src/workspace/CaveWidget.test.tsx |\n| 2 | Practitioner can add new cave flag | E2E | playwright/cave-add.spec.ts |\n| 3 | Cave flag stored as AllergyIntolerance in Aidbox | integ | apps/api/tests/cave-storage.test.ts |",
+  "acceptance_criteria": "- Cave widget renders existing cave entries for the current patient\n- Practitioner can add a new cave flag via the widget\n- New cave flag is stored as AllergyIntolerance resource in Aidbox\n- Widget updates without page reload after adding a cave flag",
+  "type": "feature",
+  "metadata": {
+    "intent": "Surface cave alerts prominently in the patient workspace so practitioners can quickly identify contraindications. Scope IN: CaveWidget component, cave API endpoints, Aidbox write. Scope OUT: Cave history, deletion, approval flow.",
+    "constraints": ""
+  }
+}

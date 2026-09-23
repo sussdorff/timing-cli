@@ -68,6 +68,8 @@ dev = [
 [tool.ruff]
 target-version = "py312"
 line-length = 100
+# Library-managed agent tooling is vendored content, not project source.
+extend-exclude = [".agents", ".claude", ".codex"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B", "C4"]

@@ -1,0 +1,11 @@
+{
+  "id": "test-OVERLAY-POLARIS-REDUCED",
+  "title": "Add Billing context to Encounter resource",
+  "description": "Extend the Aidbox Encounter resource with a billing context field linking to the active billing case. Update the FHIR profile and adjust search parameter indexing.\n\n## MoC\n\n| # | AC | MoC | Evidence |\n|---|---|---|---|\n| 1 | Encounter records include billing context field | integ | Aidbox API call verifies field presence |\n| 2 | Search by billing context returns correct Encounters | integ | adapter/tests/encounter-billing.test.ts |",
+  "acceptance_criteria": "- New Encounter records include a billing context reference field\n- Search by billing context returns correct results\n- Existing Encounter records are unaffected",
+  "type": "feature",
+  "metadata": {
+    "intent": "Enable billing context attribution on Encounter resources. Scope IN: Aidbox profile update, search index. Scope OUT: UI changes, migration of existing records.",
+    "constraints": "Must not require aidbox-reset.sh."
+  }
+}

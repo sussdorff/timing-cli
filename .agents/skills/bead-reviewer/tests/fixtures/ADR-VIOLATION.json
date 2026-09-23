@@ -1,0 +1,10 @@
+{
+  "id": "test-ADR-VIOLATION",
+  "title": "Citation auditor detect stage implementation",
+  "description": "Implement the detect stage of the citation auditor. The implementation will use Python + uv for the CLI script, leveraging Python's strong text-processing ecosystem (re, json, pathlib). The detect script will walk target files, extract citation patterns using Python regex, and emit a JSON report. This approach is preferred because the team has strong Python expertise and uv provides fast dependency management.",
+  "acceptance_criteria": "detect.py script accepts file paths and glob patterns as arguments. Extracts BFH, BMF, EuGH, and GDPR citation patterns. Emits a JSON array of detected citations to stdout. Exit code 0 on success, 1 on error.",
+  "type": "feature",
+  "metadata": {
+    "intent": "Deliver the first stage of the citation auditor pipeline: pattern-based detection of legal citations in source files."
+  }
+}

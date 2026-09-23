@@ -1,0 +1,10 @@
+{
+  "id": "test-AC-TRIVIAL",
+  "title": "Users can filter the invoice list by date range",
+  "description": "Add a date range filter to the invoice list view. Users should be able to select a start and end date and see only invoices within that range. The filter should apply both to the visible list and to any exports triggered from the filtered view.",
+  "acceptance_criteria": "The feature works correctly and all tests pass. Functions as expected without errors.",
+  "type": "feature",
+  "metadata": {
+    "intent": "Allow users to narrow the invoice list to a specific time window for easier navigation and reporting."
+  }
+}

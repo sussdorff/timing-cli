@@ -1,0 +1,10 @@
+{
+  "id": "test-SCOPE-MULTI-CONCERN",
+  "title": "Add product search to the catalogue",
+  "description": "Implement full-text product search for the catalogue. This covers two separate work streams: (1) the backend search API including Elasticsearch indexing, query normalization, and relevance scoring — which must be reviewed and signed off by the Platform team before release; and (2) the frontend search UI including the search bar, autocomplete, filter panel, and results rendering — which requires a separate UX stakeholder review and a design QA pass before it can be merged. The two concerns have independent review gates and different domain experts.",
+  "acceptance_criteria": "Backend: search API returns ranked results for free-text queries within 200 ms at p95. Elasticsearch index is kept in sync within 30 s of catalogue changes.\nFrontend: search bar with autocomplete renders correctly on mobile and desktop. Filter panel allows multi-select. Results page shows pagination.",
+  "type": "feature",
+  "metadata": {
+    "intent": "Enable users to find products in the catalogue by keyword search."
+  }
+}
