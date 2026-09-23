@@ -83,4 +83,3 @@ issue refs, the repository, the branches, the candidate SHA, the harness, and
 the worktree owner — carried in the delivery journal, the Session Close journal,
 and the pull-request footer. Never re-derive any of it by parsing a worktree
 path or a branch spelling.
-

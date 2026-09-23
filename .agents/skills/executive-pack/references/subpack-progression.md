@@ -39,4 +39,3 @@ persistent parent-owner session. Aggregate-review fixes use `parent-repair`, whi
 delegates to the parent repair actor, supersedes the gate, and requires re-gating. Do not begin
 final Pack perspectives until the contract reports
 `ready_for_final_review: true`.
-

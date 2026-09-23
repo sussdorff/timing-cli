@@ -90,4 +90,3 @@ the original author. Sync bead
 state with `ccore beads sync` and a stable operation ID
 before reporting a bead handoff-ready. `bd dolt push --force` is reserved for
 explicit human recovery; the path is in `cognovis-beads/references/dolt-sync.md`.
-

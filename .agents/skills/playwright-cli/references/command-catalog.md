@@ -238,4 +238,3 @@ playwright-cli snapshot e34
 # include each element's bounding box as [box=x,y,width,height]
 playwright-cli snapshot --boxes
 ```
-

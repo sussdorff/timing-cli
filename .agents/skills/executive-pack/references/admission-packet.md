@@ -64,11 +64,22 @@ Pointers: <work-order refs, ADR paths, affected paths, focused commands>
 Open: <anything admission could not settle, with who decides>
 ```
 
-Commit the packet to the linked worktree as
-`.delivery/admission-<first-work-item>.md` so a later coordinator session or a
-human can read it, and pass its path in the initiating prompt. A new T3 thread must re-read the
-packet in its own workspace; do not assume the admission thread's file is
-visible. The packet is delivery state; conversation chronology is not.
+The packet is delivery state, not repository content; conversation chronology
+is neither. Write it to the repository's shared Git directory, never to the
+working tree:
+
+```bash
+packet="$(git rev-parse --path-format=absolute --git-common-dir)/delivery/admission-<first-work-item>.md"
+mkdir -p "$(dirname "$packet")"
+```
+
+Every linked worktree of the repository on this machine resolves the same
+path, so a coordinator thread in its own worktree reads the packet without a
+commit, and Git can never stage it. Admission and coordinator run on the same
+machine. Do not commit the packet, do not copy it into the worktree, and do
+not cite it from source, tests or documentation; move a decision that must
+outlive the delivery into the work order, an ADR or the pull request text.
+Pass the absolute path in the initiating prompt.
 
 ## Initiating prompt for the coordinator
 

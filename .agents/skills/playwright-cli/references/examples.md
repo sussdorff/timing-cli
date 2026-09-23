@@ -50,4 +50,3 @@ Ask the user for UI review or design feedback. The user draws boxes on the live 
 playwright-cli open https://example.com
 playwright-cli show --annotate
 ```
-

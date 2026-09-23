@@ -53,4 +53,3 @@ Carry the source text, approved candidate boundary, Phase 0.5 duplicates, HITL
 merge/split decisions, and any infrastructure-sensitive source hints (CI / pipeline /
 harness / permissions / git / bd / Dolt / orchestrator / session-close signals) into
 the normalization so they shape `context`, scope, and labels.
-

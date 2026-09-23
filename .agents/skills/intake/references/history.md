@@ -35,4 +35,3 @@ This appears to be already filed as <bead-id>: <title>.
 
 Ask whether to append context to the existing bead, continue with a new candidate, or stop.
 Do not proceed to drafting until the user confirms the intended path.
-

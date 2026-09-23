@@ -13,21 +13,29 @@ candidate selector, or deterministic model-selection choreography.
 
 ## Defaults
 
-Fable is the Claude-family review model. Wherever a Claude-family reviewer or fallback
-is named below, it is Claude Fable through the ccore `claude-fable` route (`fable[1m]` on
-the native `claude` harness), not Opus. Opus stays a configured route for callers that
-name it explicitly; it is no longer a launcher default for review.
+Fable is the Claude-family review preference, not a proven exact version. Wherever a
+Claude-family reviewer or fallback is named below, select an exact Fable model advertised
+by the target native surface or, when native dispatch is unavailable or fails, the ccore
+`claude-fable` route. The ccore catalog currently records that alias with backend model
+`fable[1m]` on the `claude` harness; those fields do not establish an equivalent native
+ID or an exact upstream version. Leave the exact version unresolved when the target
+surface does not establish it; do not silently substitute another Claude model.
+Opus may be selected only when the target surface advertises it or the ccore catalog
+configures it for a caller that names it explicitly; a catalog entry still needs an
+actual dispatch result. Opus is no longer a launcher default for review.
 
 For a Codex-owned delivery, prefer `gpt-6-astra` with medium reasoning for the invoking
 delivery owner. This is an invoking-session model choice, not an assumption that ccore
 provides an Astra route. Use a distinct `gpt-5.6-sol` implementation sub-agent with high
 reasoning and a distinct `gpt-5.6-sol` RED author with high reasoning when TDD applies.
-Fable is Reviewer 1. Use Grok as Reviewer 2 on the grok harness only when the selected
-Solo preset or final Pack review requires that second review perspective.
+Fable is Reviewer 1. Use Grok as Reviewer 2 only when the selected Solo preset or final
+Pack review requires that second review perspective. Prefer a compatible native Grok
+actor; otherwise select its configured ccore route from the general catalog.
 
 For a Claude-owned delivery, use a distinct Opus implementation sub-agent, a fresh
-`gpt-5.6-sol` Reviewer 1 with high reasoning, and Grok as Reviewer 2 on the grok
-harness. The implementation model is unchanged by the Fable preference above, which
+`gpt-5.6-sol` Reviewer 1 with high reasoning, and Grok as Reviewer 2 when required.
+Prefer the target native surface for Grok and use its catalog-reported ccore harness as
+fallback. The implementation model is unchanged by the Fable preference above, which
 covers review roles only.
 
 Reviewer 2 and the security perspective belong to the High-Assurance preset. The Light
@@ -145,9 +153,10 @@ non-GPT implementer when Fable is unreachable, and a fresh Fable fallback is all
 any non-Claude implementer. A row that reads "report the gap" ends the review, not the
 invariant: provider absence never becomes approval.
 
-Grok reaches its reviewer role through `--harness grok`, not through Cursor. Cursor as a
-transport has delivered answers since 2026-09-04, but Fable through Cursor has not; see
-"Reviewer route status" below before treating any cursor-hosted model as a review option.
+For ccore fallback, select Grok from the harness reported by the current general catalog;
+do not infer a Cursor route from a marketing or provider-CLI name. A native surface may
+dispatch an exact Grok ID that it advertises. The historical Cursor observations below
+record prior transport behavior but do not gate current native dispatch.
 
 These are launcher defaults, not a registry. A compatible caller may name other actors
 in the paragraph. It may not make the repository delivery owner the implementation
@@ -156,10 +165,15 @@ approval.
 
 ## Transport boundary
 
-Agent-shell work uses the installed ACPX dispatcher with an exact adapter, advertised
-model ID, reasoning effort, stable session, linked worktree, complete prompt file,
+Subject to explicit caller constraints, prefer the intended actor's native subagent
+surface when it advertises the exact model and supports the required role. This order
+overrides transport defaults in skills, roles, profiles, and launchers. When native
+dispatch is unavailable or fails, use `ccore agent`. Its agent-shell transport uses the
+installed dispatcher with an exact adapter, catalog route, reasoning effort, stable
+session, linked worktree, complete prompt file,
 permissions, and unique event and answer files. A route names an adapter, never a shell
-fragment. A review has no turn budget.
+fragment. Do not bypass ccore with a provider CLI or direct ACPX call. A review has no
+turn budget.
 
 The `ccore agent run` default of `approve-reads` grants only read-only tools and
 no shell, so it cannot implement, repair, or run verification. The implementation
@@ -177,19 +191,25 @@ return control to the delivery owner and never authorize progression.
 
 ### Model identifiers
 
-A route names a canonical model; what an adapter accepts is a
-verified dispatch input. The two are sometimes the same string and sometimes not,
-and which case applies is not something a caller can read off the alias.
-`ccore model resolve grok-4.6 --via cursor` returns the bare `grok-4.6`, which
-dispatches unchanged because ACPX normalizes it to the one advertised bracketed
-identifier that matches it. So the caller takes the dispatch input from
-`ccore model resolve <alias> [--via <agent>]`, whose deterministic table carries a
-verification date per entry, instead of deciding which case applies. Guessing an
-identifier from a provider CLI, a marketing name, or memory is not a substitute for
-that lookup, and neither is assuming the alias must be rewritten.
+Model identifiers belong to their dispatch surface. For native dispatch, use only an
+exact model ID advertised by the native subagent tool; visibility in a user-interface
+picker alone does not establish subagent support. For ccore fallback, begin a Claude
+lookup with `ccore agent models --harness claude --json` and use
+`ccore agent models --json` for other or unknown harnesses. Keep each result's
+`canonical_alias`, `backend_model`, and `harness` distinct and dispatch with
+`ccore agent run --model <canonical_alias> --harness <harness>`; do not translate a
+native ID into a ccore alias or guess that a backend ID is accepted on another surface.
 
-The rules below were verified by live dispatch on 2026-08-17. A rule without such a
-date is unverified and does not belong here.
+The ccore output is a configured catalog, not live discovery. It does not prove current
+reachability, an exact upstream version, or equivalence with a native model. Actual
+dispatch supplies the availability diagnostic. If neither native dispatch nor a ccore
+route can provide the required actor, report that diagnostic without weakening model
+prohibitions, explicit caller constraints, actor separation, or family separation. Do
+not silently substitute a different model; an exact version that neither surface proves
+remains unresolved rather than becoming a generic family match.
+
+The adapter observations below were verified by live dispatch on 2026-08-17. They are
+historical transport notes, not an allowlist or a gate against current native dispatch.
 
 - The cursor adapter advertises bracketed identifiers through its `model` configuration
   option, for example `grok-4.6[effort=high,fast=true]`.
@@ -202,10 +222,10 @@ date is unverified and does not belong here.
 
 ## Reviewer route status
 
-This section records what has actually been dispatched, so a delivery owner does not
-discover at Reviewer 2 that no second family is reachable. It is operator policy prose,
-not a machine-resolved routing table: read it, then choose. A route absent from here is
-unverified, and an unverified route is not a reviewer.
+This section records historical dispatch observations that may help diagnose a fallback.
+It is not a machine-resolved routing table or an allowlist. Current native surface
+advertisement and actual dispatch determine whether a newly available route can run;
+configured ccore routes still require an actual dispatch result.
 
 Grok observations below were made on 2026-08-26 against ccore 2026.8.35 (build
 c7d7fda3972b32), ACPX 0.13, cursor-agent 2026.08.11-e8db854, and Grok Build 1.0.5.
@@ -214,14 +234,15 @@ Fable and Cursor observations were made on 2026-09-04 against ccore 2026.9.2, AC
 
 ### Fable: transport-verified Claude-family reviewer route
 
-`ccore agent run --model claude-fable` resolves to `fable[1m]` on the native `claude`
-harness. On 2026-09-04 it returned a terminal answer with `stop_reason: end_turn` on two
-hosts: a macOS workstation whose Claude Code holds a Claude Max OAuth login, and
-yakushido, whose Claude Code authenticates through an `apiKeyHelper` against the cliproxy
-endpoint. Both observations were single-word probes (`PONG`) under `deny-all`
-permissions, so they prove reachability of the route, not review quality; a review
-dispatch still carries worktree-confined `approve-all` as the transport boundary
-requires. The route is the only Fable dispatch that has answered on this fleet.
+`ccore agent run --model claude-fable` used backend model `fable[1m]` on the ccore
+`claude` harness. On 2026-09-04 it returned a terminal answer with
+`stop_reason: end_turn` on two hosts: a macOS workstation whose Claude Code holds a
+Claude Max OAuth login, and yakushido, whose Claude Code authenticates through an
+`apiKeyHelper` against the cliproxy endpoint. Both observations were single-word probes
+(`PONG`) under `deny-all` permissions, so they proved reachability of the route at that
+time, not review quality; a review dispatch still carries worktree-confined
+`approve-all` as the transport boundary requires. As of that observation, this was the
+only Fable route known to have answered on this fleet.
 
 One host caveat, not a route limit: Claude Code reads a user-level `apiKeyHelper` only
 from `~/.claude/settings.json`. A helper placed in `~/.claude/settings.local.json` applies
@@ -249,9 +270,11 @@ The historical `-32601` came from none of those. ccore-x0n records it against th
 `session/set_config_option`, a method Grok Build does not implement for effort. That call
 is gone, which is why nothing in the current route sets effort over ACP at all.
 
-A caller therefore passes `--reasoning` to `ccore agent run --harness grok` and lets ccore
-put it into `GROK_CONFIG`; there is no acpx `set` call to reach for, and a missing one is
-not a defect. Confirmed on 2026-08-26: the ACP session record for a dispatched turn
+For that recorded ccore route, a caller passes `--reasoning` to
+`ccore agent run --harness grok` and lets ccore put it into `GROK_CONFIG`; there is no
+acpx `set` call to reach for, and a missing one is not a defect. Native dispatch instead
+uses the exact model and effort exposed by its own surface. Confirmed on 2026-08-26: the
+ACP session record for a ccore-dispatched turn
 carries `modelId: grok-4.6` with `reasoningEffort: xhigh` (and `high` on a second run),
 and ccore's evidence contract reports `reasoning_setup_status: applied` with
 `reasoning_source: grok_config`.
@@ -285,14 +308,15 @@ steps and returned the single agent message `Check your settings to continue` wi
 ordinary `agent_message_chunk` from the agent, after `set model` succeeded, so it arrived
 through the same transport path as the answers above. The same reply has been reported by
 other ACP clients for Anthropic models on some Cursor accounts. Its cause is not
-established here and is outside this standard; until a Fable dispatch through Cursor
-returns a real answer, Fable through Cursor is not a reviewer route, and Fable's
-transport-verified route is the native `claude` harness above.
+established here and is outside this standard. During that observation, Fable through
+Cursor did not qualify as a verified reviewer route; the answered fallback used the
+ccore `claude` harness above.
 
 A verified Cursor transport does not by itself make a cursor-hosted model a launcher
-default. Grok keeps its `--harness grok` route, and Reviewer 2 for both delivery families
-stays Grok. A caller who names a cursor-hosted Opus 5 or GPT-5.6 reviewer must still keep
-the different-family invariant against the implementation actor.
+default. The recorded ccore catalog places Grok on its `grok` harness, and Reviewer 2
+for both delivery families stays Grok. A caller who names a cursor-hosted Opus 5 or
+GPT-5.6 reviewer must still keep the different-family invariant against the
+implementation actor.
 
 The two conditions recorded on 2026-08-26 did not reproduce on this host: cursor-agent
 was logged in, and the persistent-session spawn reached the ACP handshake. The earlier
