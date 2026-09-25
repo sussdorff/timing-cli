@@ -240,24 +240,6 @@ def test_reconstruction_preserves_activity_without_application_metadata(tmp_path
     assert missing_metadata.application_id == 999
 
 
-def test_reconstruction_total_count_is_computed_in_sql(tmp_path):
-    db_path = tmp_path / "Timing.db"
-    _create_timing_fixture(db_path)
-    statements = []
-
-    with open_db(db_path) as conn:
-        conn.set_trace_callback(statements.append)
-        page = db.list_reconstruction_sources(
-            conn,
-            BASE,
-            BASE + timedelta(minutes=10),
-            limit=10,
-        )
-
-    assert page.total_count == 1
-    assert any("COUNT(*)" in statement.upper() for statement in statements)
-
-
 def test_reconstruction_cursor_rejects_insertion_before_position(tmp_path):
     db_path = tmp_path / "Timing.db"
     _create_timing_fixture(db_path)

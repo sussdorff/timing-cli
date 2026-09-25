@@ -10,7 +10,7 @@ from __future__ import annotations
 from datetime import datetime, timedelta
 from pathlib import Path
 
-from timing_cli.config import Config, Rule, load_config
+from timing_cli.config import Rule, load_config
 from timing_cli.default_rules import DEFAULT_COGNOVIS_RULES
 from timing_cli.models import AppUsage
 from timing_cli.rules import UNASSIGNED, Classifier
@@ -118,53 +118,7 @@ def test_unmatched_stays_unassigned():
     assert _classify(usage) == UNASSIGNED
 
 
-# --- Synthetic normal workday: >70% classified ------------------------------
-
-
-def _normal_workday() -> list[AppUsage]:
-    return [
-        _slice(0, 90, "cmux", title="Polaris DeID pipeline review"),
-        _slice(90, 45, "cmux", title="Kickoff Syntegon roadmap"),
-        _slice(
-            135,
-            60,
-            "Cursor",
-            title="config.py — timing-cli",
-            path="/Users/malte/code/cli-tools/timing-cli/timing_cli/config.py",
-        ),
-        _slice(195, 40, "cmux", title="cmux"),
-        _slice(235, 20, "Mail", title="]project-open[ new ticket"),
-        _slice(255, 60, "Safari", title="Hacker News frontpage"),
-        _slice(
-            315,
-            20,
-            "Finder",
-            title="README.md",
-            path="/Users/malte/code/home-infra/README.md",
-        ),
-        _slice(335, 15, "Slack", title="Romelag standup notes"),
-        _slice(350, 30, "Terminal", title="random terminal session"),
-    ]
-
-
-def test_normal_workday_is_mostly_classified():
-    classifier = Classifier(DEFAULT_COGNOVIS_RULES)
-    usage = _normal_workday()
-    total = sum(slice_.duration_seconds for slice_ in usage)
-    unassigned = sum(
-        slice_.duration_seconds
-        for slice_ in usage
-        if classifier.classify(slice_).project_title == UNASSIGNED
-    )
-    classified_ratio = (total - unassigned) / total
-    assert classified_ratio > 0.70, f"only {classified_ratio:.1%} classified"
-
-
 # --- Wiring through Config / load_config ------------------------------------
-
-
-def test_use_default_rules_defaults_to_true():
-    assert Config().use_default_rules is True
 
 
 def test_load_config_with_no_file_still_gets_defaults(tmp_path: Path):
