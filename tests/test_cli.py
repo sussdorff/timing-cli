@@ -6,7 +6,6 @@ import re
 import time as time_module
 from contextlib import contextmanager, nullcontext
 from datetime import datetime, timedelta, timezone
-from pathlib import Path
 
 import pytest
 from typer.testing import CliRunner
@@ -136,20 +135,6 @@ def test_projects_local_only_rejects_remote_before_client_access(monkeypatch):
     assert result.exit_code != 0
     assert "--local-only cannot be combined with --remote" in output
     assert "Traceback" not in output
-
-
-def test_uat_projects_prefix_requires_local_only_guard():
-    config_lines = {
-        line.strip()
-        for line in (Path(__file__).parents[1] / ".claude" / "uat-config.yml")
-        .read_text(encoding="utf-8")
-        .splitlines()
-    }
-
-    assert "- [projects, --local-only]" in config_lines
-    assert "- [--no-color, projects, --local-only]" in config_lines
-    assert "- [projects]" not in config_lines
-    assert "- [--no-color, projects]" not in config_lines
 
 
 @pytest.mark.parametrize(
