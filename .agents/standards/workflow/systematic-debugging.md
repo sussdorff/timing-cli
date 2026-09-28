@@ -85,9 +85,9 @@ If 3 fix attempts fail for the same bug:
 
 1. **STOP** attempting fixes
 2. **Document** what was tried, what happened, and what was ruled out
-3. **Escalate**: Report to the user or write a debug log to bead notes
+3. **Escalate**: Report to the user or add a debug log to the work order
 
-Append this record with `bd update <id> --append-notes`:
+Add this record with `ccore tracker comment <owner/repo#N> --body <text>`:
 
 ```text
 Debug log: Attempted 3 fixes for <symptom>.

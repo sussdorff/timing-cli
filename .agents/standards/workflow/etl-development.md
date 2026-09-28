@@ -16,7 +16,7 @@ a vendor view is the vendor's own documentation of how tables combine.
 
 Regenerate dated schema artifacts with the adapter CLI (`discover`, `schema`,
 `schema-verify`). Fail-closed freshness and drift belong to that CLI and
-`@polaris/adapter-testkit`, not to a Library generator. Do not treat a committed
+the product's adapter test kit, not to a Library generator. Do not treat a committed
 JSON inventory as ground truth.
 
 ## Target-side structural validation
@@ -59,11 +59,11 @@ database. Do not paste catalog SQL when the adapter CLI exists.
 
 1. **Dry run with a limit**: test the mapper against real data WITHOUT writing to the target system
    ```bash
-   bun run pvs:x-isynet:sync --table=<new-table> --limit=50 --dry-run
+   bun run pvs:adapter-x:sync --table=<new-table> --limit=50 --dry-run
    ```
 2. **Live run with a limit**: push a small amount into the target system and check the result
    ```bash
-   bun run pvs:x-isynet:sync --table=<new-table> --limit=50
+   bun run pvs:adapter-x:sync --table=<new-table> --limit=50
    ```
 3. **Target validation**: spot-check the loaded resources in the target system (for example a FHIR bundle or a DB query)
 

@@ -1,238 +1,162 @@
 ---
 name: executive-pack
-description: Own an approved repository delivery in the invoking session, from hosted-issue admission through review and Session Close.
-requires_standards: [executive-pack, workflow/uat-config-schema, dispatch/model-routing]
+description: Deliver one hosted work order in the invoking session - grilling, tdd implementation, three-model adversarial review with triage, independent verification, one pull request, merge decision and session retro.
+requires_standards: [executive-pack, dispatch/model-routing]
 requires:
-  - skill:implementation-loop
-  - skill:context-discovery
+  - script:ccore
   - skill:playwright-cli
-  - skill:session-close
+  - skill:session-retro
   - agent:implementer
-  - agent:uat-validator
-  - agent:focus-review-agent
-  - agent:plan-reviewer
-  - agent:doc-changelog-updater
   - standard:executive-pack
 scripts:
-  - path: scripts/landing_policy.py
+  - path: scripts/finding_triage.py
     role: helper
     entrypoint: true
-    language: python
-    output_contract: json-envelope
-  - path: scripts/pack_review_contract.py
-    role: helper
-    entrypoint: false
     language: python
     output_contract: json-envelope
 compatibility: {}
 metadata: {}
 ---
 
-# Repository Delivery
+# Delivery
 
-Consumer-owned helpers are in `scripts/` of the **installed** skill root, not
-the marketplace source path `skills/executive-pack/`. Resolve `$SKILL_ROOT`
-local-first and fail closed if none of these exist:
+The invoking session is the main session (`opus`). It owns one hosted work order from
+grilling to the merge decision and never hands that ownership to another agent. Work
+happens in the delivery worktree the session already owns (the T3 thread worktree, or a
+self-managed linked worktree). Read the work order with `ccore tracker show <ref>`.
 
-1. `<repo>/.agents/skills/executive-pack`
-2. `<repo>/.claude/skills/executive-pack`
-3. `<repo>/skills/executive-pack`
-4. `~/.agents/skills/executive-pack`
-5. `~/.claude/skills/executive-pack`
+The Pocock skills `grilling`, `tdd`, `code-review` and `pr` are installed globally per
+host; `playwright-cli` comes from the Library. Model aliases and their `ccore agent`
+fallback routes are in the injected `dispatch/model-routing` standard: use the native
+subagent with the alias first, the named `ccore agent` route only when the alias is
+unavailable.
 
-Helpers include quick-fix and live-network checks, effort
-classification, workspace guards, Phase 14 scope, the landing-policy resolver,
-and the plan-review gate. Delivery identity is `ccore delivery start`.
+Resolve the installed helper root local-first and fail closed if none exists:
+`<repo>/.agents/skills/executive-pack`, `<repo>/.claude/skills/executive-pack`,
+`~/.agents/skills/executive-pack`, `~/.claude/skills/executive-pack`. The only helper is
+`scripts/finding_triage.py`.
 
-Own one approved repository delivery in this invoking session. `solo` admits exactly
-one hosted issue; `executive-pack` admits an ordered issue list in one repository. The normal
-shape uses one linked worktree (T3 thread worktree by default). An optional Sub-Pack shape adds isolated execution
-worktrees around one parent integration worktree without creating nested repository
-deliveries. A direct skill invocation and a launcher-created initial prompt enter this
-same repository delivery contract. Never spawn or rename a delivery-owner agent.
+## 1. Grilling (main session, `opus`)
 
-STATUS: BEHAVIORAL ROLE AND REVIEW POLICY. The initiating prompt names actors in a
-readable role paragraph. The delivery owner follows that paragraph and the applicable review reference. Transport can prove that a distinct session ran, but routing tables or
-deterministic model-selection machinery do not interpret the paragraph.
+Run `grilling` against the work order until the intent, the acceptance criteria and the
+boundaries are unambiguous. A question that reading code, running the artifact or
+building a throwaway prototype can answer is answered by the agent, not asked. Only
+product or preference decisions go to the human. When the answers change the work
+order, update it with the intake author check and `ccore tracker update`.
 
-## Presets
+## 2. Implementation (`implementer` subagent on `opus`, with `tdd`)
 
-The Light preset is the default: one fresh Reviewer 1 per member, one fresh whole-Pack
-Reviewer 1 pass at the end, no Reviewer 2, and security or acceptance only where the
-repository policy or a claim makes them applicable. High Assurance adds the fresh
-different-family Reviewer 2 and the security perspective. High Assurance is selected
-when the landing-policy envelope reports an elevating `review_risk` (payment, PII,
-auth, compliance), when the caller names it in the role paragraph, or when the
-repository's own instructions require it. Record the preset in the admission packet;
-it does not change after admission.
+Dispatch one `implementer` subagent on `opus` in the delivery worktree. It receives the
+work order, the grilling outcome, the worktree and its base commit, implements with
+`tdd`, runs the affected checks and commits the candidate. It does not review or verify
+its own change.
 
-## Admission session and coordinator
+## 3. Adversarial review (three models, read-only, in parallel)
 
-Admission may run in a more capable session than delivery. Read
-[admission-packet.md](references/admission-packet.md): a Fable or Astra session
-grills the work order, derives seams, resolves landing policy and writes the compact
-admission packet; a large-context, lower-cost coordinator session (Sonnet 5 under the
-Claude provider, or Luna medium under the Codex provider) starts fresh from that
-packet and owns the delivery from `ccore delivery start` through Session Close. The owner is
-fixed at the end of admission. Never spawn, replace or rotate it afterwards; the
-compact handoff rotates implementation sessions only. When the operator instead
-preselects Luna for one session that does both phases, read
-[luna-coordination.md](references/luna-coordination.md) for its role prompt, packet
-and bounded fresh-Astra advisor rules. Prompt text cannot switch a session's model.
+Dispatch three read-only reviewer subagents in parallel, one each on `opus` (a fresh
+context, not the implementer's), `sonnet` and `haiku`. All three get the same
+adversarial brief, with no per-model persona:
 
-## Admission
+- the stated intent and the acceptance criteria of the work order,
+- the complete diff from the base commit to the candidate,
+- the instruction: find where this change fails its intent - incorrect behaviour,
+  missing cases, and claims the change or its tests do not prove. Return each finding
+  with an id, a severity (`nit`, `low`, `medium`, `high`, `critical`), the paths, the
+  acceptance criterion it concerns (or that it concerns the change's own behaviour) and
+  a one-sentence summary.
 
-Validate the explicit mode, repository, linked worktree, unique ordered issue
-refs, dependency readiness, proposed TDD seams and prerequisite evidence. Read
-each work order with `ccore tracker show`. Registry entries must declare
-`github` or `forgejo`; unhosted entries fail closed. Never infer the backend
-from git remotes. Derive seams
-from approved AC/MoC; ask only when an unresolved boundary changes scope or risk.
-Preserve explicit authorization for the same concrete work and local repairs.
-Freeze this contract for the current delivery; edits to it do not change this run.
+Each reviewer applies the `code-review` skill's review method and checklist itself; it
+does not start that skill's own subagents. Each reviewer works alone and returns one
+finding list. When a native alias fails, that
+reviewer runs through its `ccore agent` fallback route. When no route works for a
+reviewer, stop and report the dispatch failure; never continue with fewer reviewers and
+never treat a transport failure as a clean review. Record the route each reviewer used.
 
-Name the implementation owner, Reviewer 1, Reviewer 2 and fallback in one role
-paragraph, preserving distinct actors and required different-family final review.
-Under the Light preset Reviewer 2 is named as `not required`; the fresh Reviewer 1
-must still differ in family from the implementation actor. Missing actors or
-incomplete answers never imply approval. The invoking session
-owns delivery identity, sequencing, finding disposition, callbacks and Session Close. The
-same logical implementation owner owns all source and repairs; reviewers are read-only.
-Its current session changes only through the compact committed handoff in
-[compact-handoff.md](references/compact-handoff.md). This internal handoff needs no
-human approval. The logical implementation owner remains distinct from the delivery
-owner and reviewers, and exactly one current implementation session may write.
-An optional plan-reviewer advises on an admitted plan and grants no authority. Under
-the Luna profile, the bounded Astra advisor in the profile reference is also advisory;
-it never enters the implementation or review lineage.
+The main session merges the three result sets into one deduplicated finding list. This
+review looks for failures against intent; pr-agent covers the standards and conventions
+lens later. Neither a green CI nor a pr-agent approval counts as the verification verdict.
 
-Before dispatch read [admission.md](references/admission.md). Call
-`ccore delivery start` and scripts/landing_policy.py resolve; use their
-typed envelopes, not process exit alone or a prose reconstruction of policy. Record
-the exact issue refs, candidate, branches, worktree owner and session identity. Provider
-worktree ownership is declared, never guessed from paths.
+## 4. Triage (one repair round)
 
-### Optional work-kind delegation
+Run `scripts/finding_triage.py --findings-file <merged.json> --diff-path <path>...
+--ac-ref <AC>...`. Its `repair` set goes back to the same `implementer` subagent in one
+round, all findings at once, ending in one repair commit. Run it again with
+`--review-decisions --repair-rounds-used 1` and one `--repaired <id>` per finding the
+repair commit fixed, to render the deferred and the repaired findings as the "Review
+decisions" section of the pull request body. An unknown repaired id fails the call. A
+second repair round needs a reason the main session states in that section.
 
-Use the work kinds in the injected model-routing standard as responsibilities, not Bead
-types or an actor checklist. Optional context lookup or research runs only when it has a
-bounded concrete question, relevant paths and constraints, a concise evidence-bearing
-result, and useful delivery-owner work can continue independently. Give it a compact
-fresh context without parent history. Under the Luna profile, a fresh Astra advisor may
-also answer the explicit planning and unresolved-blocker cases in
-[luna-coordination.md](references/luna-coordination.md), including a blocker that leaves
-the delivery owner with no independent progress. It returns one terminal advisory
-answer; do not keep a watchdog or monitoring session. Name any difficult lookup that
-justifies escalation beyond Luna medium; use high for that escalation. A native generic
-actor may instead use Luna max only for the same named difficulty and when its current
-spawn surface advertises that exact model and effort. Astra xhigh likewise requires an
-advertised native choice and remains limited to bounded decision support after lookup.
-Validate the choice against the actual target surface instead of inferring ccore
-support from native spawn metadata or native support from ccore. Never blanket-upgrade
-reasoning for the delivery.
+## 5. Verification (always, by a non-author agent)
 
-Honor the selected actor's effective configuration. In Codex, do not try to override a
-hard-pinned custom agent at spawn time; choose a compatible generic actor or retain the
-declared configuration with a reason. Optional delegation neither transfers logical
-source ownership nor replaces TDD authorship, required foreign-family review,
-acceptance, security or project-specific evidence.
+Every delivery is verified by an agent that did not write the change. Only evidence from
+running the changed artifact counts: a command, a request or a UI path, with its
+observed result. Tests passing are not verification.
 
-## Implement members
+- When the delivered repository has a skill matching `.agents/skills/verify-*`, the
+  verifier uses it.
+- UI changes are driven with `playwright-cli` by a `haiku` subagent. When that alias is
+  unavailable or cannot operate `playwright-cli`, run the verifier through
+  `ccore agent run --model gpt-6-luna --harness codex`.
+- Other changes are verified by a `haiku` subagent that runs the changed command,
+  endpoint or script.
 
-`implementation-loop` is the member loop for one admitted issue. It is not the vehicle
-for post-review Pack repairs; see Repair convergence below.
+The verifier returns one verdict - `PASS`, `PASS+NOTES` or `FAIL` - together with the
+head commit SHA it verified and each run path with its outcome. A new commit on the
+branch invalidates the verdict; verify again. A `FAIL` goes back to the implementer as a
+repair. When the change cannot be run at all, record that reason instead of a verdict;
+such a delivery is never merged by the main session.
 
-For each ordered issue, record delivery identity with `ccore delivery start`
-before invoking implementation-loop. Start
-the first fresh implementation session from the compact admission packet; later fresh
-sessions start from the preceding compact committed handoff. Disable parent history
-inheritance (`fork_turns="none"` where the native dispatch supports it). The same
-logical implementation owner retains source, TDD, focused MoC and commit responsibility.
-Within a large bead, rotate again after a clean committed handoff before the working
-context stops being compact.
+## 6. Pull request (`pr`)
 
-Use `ccore agent` for implementation dispatch when that transport is selected; a
-native subagent is also valid. Both receive the same compact input and distinct-writer
-constraints.
+Always open a pull request: write its text with `pr` and publish it with
+`ccore pr ensure --repo <worktree> --summary <text>`, which picks `gh` or `fgj`
+from the remote. `ccore pr ensure` rebases the branch onto the target before its first
+push; when that changes the head commit, verify again (step 5) and update the
+Verification section. Push later repair commits with a plain `git push`. Rerunning
+`ccore pr ensure` on an already published branch can rebase and force-push it; that is a
+history rewrite and needs the user's authorization for this branch. The body carries,
+besides the summary:
 
-Dispatch a fresh Reviewer 1 context for every member. Give it the live issue, focused
-evidence, and the member diff plus affected interactions identified by relevant paths
-and evidence. Those paths are review starting points; the reviewer may inspect other
-impacted code independently. Disable parent history inheritance for the reviewer. Send
-accepted findings back to the logical implementation owner in its
-current session, verify focused repairs, then advance without an immediate repeated
-full review. Earlier member diffs remain covered by the final whole Pack review.
+- a reference to the work order: `Closes #<n>` when the issue lives in the same
+  repository, the full issue URL otherwise,
+- a **Review decisions** section from step 4,
+- a **Verification** section with the verdict, the verified head SHA and every run path
+  with its outcome,
+- the model route each of the three reviewers used.
 
-Only for a requested Sub-Pack shape: read
-[subpack-progression.md](references/subpack-progression.md) and
-[subpacks.md](references/subpacks.md), then call scripts/subpack_contract.py admit
-before dispatch. Delegated Sub-Pack owners sequence, but do not implement, review,
-finalize or invoke Session Close; distinct member actors and a parent repair owner
-retain those boundaries.
+pr-agent on Atlas reviews the pull request once, from `.agents/standards/review.md` and
+`AGENTS.md`, and does not re-raise findings listed under Review decisions. It sets
+exactly one `review-risk:*` label and names the head SHA it classified. For each
+pr-agent finding, repair it (then verify again) or add it to Review decisions with the
+reason.
 
-## Review and complete
+## 7. Merge decision
 
-After the final member and repository gates, read
-[final-review.md](references/final-review.md). It defines candidate-bound acceptance,
-the preset-dependent Reviewer 2, security and project-specific perspectives, allowed
-not-applicable evidence, finding triage and repair convergence. Call
-scripts/pack_review_contract.py for its evidence seams and scripts/finding_triage.py
-to partition late findings before any repair. Do not drop a perspective the preset
-requires because this entry is shorter.
+The main session merges only when all of the following hold for the current head
+commit; otherwise it leaves the pull request open for a human and lists the missing
+evidence:
 
-### Repair convergence is one cumulative bugfix phase
+- the pull request carries exactly one `review-risk:*` label, it is `review-risk:none`,
+  and pr-agent's latest classification comment names the current head commit SHA. A
+  missing, stale or `review-risk:unclassified` label, or any other risk label, leaves
+  the pull request for a human. The main session never sets, changes or removes that
+  label.
+- required checks pass.
+- the Verification section records `PASS` or `PASS+NOTES` for the current head commit
+  SHA.
+- no accepted local finding is unrepaired.
+- the pr-agent review has no unresolved finding that Review decisions does not cover.
 
-Accepted findings from the final Pack perspectives are closing repairs on one existing
-candidate, never new Bead implementations. Start convergence bound to the current
-logical owner, implementation session and committed candidate. Therefore:
+An explicit human merge gate from the user or the repository still requires the human.
 
-- In normal serial execution, rotate once through the compact committed handoff to one
-  fresh repair session (Sol with high reasoning for Codex) under the same logical owner.
-  A Sub-Pack instead keeps its already-bound parent repair session.
-- The current repair implementer receives **all** remaining accepted findings at once,
-  in the one shared Pack worktree.
-- It owns the whole cumulative repair diff, including any test its own fix needs, and
-  its own focused verification. No separate `tdd-test-author`, no RED/GREEN slice
-  choreography.
-- Do not re-enter `implementation-loop` and do not replay the ordered member sequence.
-  Further turns, if any, go to the same persistent repair session, again with every
-  remaining finding at once.
-- Only findings that `scripts/finding_triage.py` places in its `repair` set enter
-  convergence: Medium or higher, inside the Pack diff, and bound to an admitted AC or
-  the candidate's own behaviour. Everything it defers becomes a pull request comment
-  or a follow-up work order, never a repair turn.
-- One repair round is the default. Consume it with its matching `record_repair_round`;
-  a second round needs a typed reason recorded by the delivery owner. Then rerun
-  invalidated acceptance, run focused verification, and create exactly one closing
-  repair commit.
-- Authorize each dispatch with
-  `pack_review_contract.authorize_repair_dispatch`; it refuses a replacement
-  implementer and refuses a dispatch that carries only part of the remaining findings.
-  Use `start_repair_convergence` and `record_repair_round` around it.
+After a merge, confirm with `ccore tracker show <ref>` that the work order closed and
+close it with `ccore tracker close <ref>` otherwise. Remove a self-managed worktree with
+`worktree-cleanup`; a T3 thread worktree belongs to T3 and stays. Run any
+post-merge postcondition the repository's `AGENTS.md` names.
 
-After clean final evidence and focused verification, write the pull request text with
-the installed `cognovis-pr` skill: Summary, Evidence, Merge Danger and Known residuals,
-title on line one, saved outside the worktree. Pass that file's content as the Session
-Close `--summary`. Then invoke the installed
-session-close skill exactly once in this session for all delivery issues and the parent worktree.
-Use ccore session-close --help for the live interface and the landing-policy result
-for authority. Never use a skill-bundled fallback when ccore is absent.
+## 8. Session retro
 
-Resume only the returned Session Close ID. Internal review/repair records remain
-caller-owned and are not a Session Close input. Do not duplicate CLI transitions.
-The outer result is a concise blocker, review-pending handoff or terminal
-result with canonical-main SHA and Session Close ID. Publication alone is not terminal
-success; honor human merge authority and report any still-open review gate.
-Cross-repository Topic scheduling and callbacks remain outside this skill.
-
-## Usage evidence
-
-Report observed development usage across the whole delivery, including implementation
-repairs, as separate `uncached_input`, `cached_input`, and `output` values. When
-transport telemetry does not expose one of those classes, report that value as
-`unavailable`; do not estimate it. Do not add cached input to an already cache-inclusive
-input total, and do not use usage reporting as a budget or approval gate.
-
-For a measured Luna-profile pilot, also apply the comparison record in
-[luna-coordination.md](references/luna-coordination.md). Record observed token classes
-and repair outcomes without converting them into savings or causal claims.
+After the merge, or after handing the pull request to a human, run `session-retro` on
+the finished session. It encodes learnings as structure first and stores them in Open
+Brain and the standards; it does not merge, push, close issues or clean worktrees.
+Report the pull request, its merge state, the verdict and the retro result.

@@ -14,13 +14,13 @@ memory review, bug review, intake planning, and workplan refinement.
    item. If the item cannot be classified with available context, classify it as
    a decision that requires confirmation rather than inventing a hidden state.
 3. **Enrich**: add evidence that makes the classification auditable, such as
-   related beads, existing files, prior memories, duplicate candidates, or
+   related issues, existing files, prior memories, duplicate candidates, or
    sibling repository hints.
 4. **Confirm**: present batched decisions to the user or caller when an action is
    destructive, cross-repo, ambiguous, or otherwise requires approval.
 5. **Execute**: apply only the confirmed action for each item. Execution must use
-   the workflow's authoritative interface, such as `bd` for beads or the
-   configured memory command for open-brain.
+   the workflow's authoritative interface, such as `ccore tracker` for hosted
+   issues or the configured memory command for open-brain.
 6. **Record**: append an audit trail row that includes the item, before and after
    state, actor, reason, and timestamp. The record must be sufficient for a later
    reviewer to understand why the action happened.
@@ -37,9 +37,9 @@ unknown cases go to a named review outcome instead of free-text drift.
 | Workflow | Load | Classify | Enrich | Confirm | Execute | Record |
 |---|---|---|---|---|---|---|
 | `ob-triage` | Load candidate open-brain memories by age, type, or stale marker. | Classify as `keep`, `merge`, `archive`, `delete`, or `promote`. | Add nearby memories, provenance, and project tags. | Batch memories whose action changes or removes stored knowledge. | Call the memory operation for the approved action. | Save the decision to the memory audit trail with the cited reason. |
-| `bug-triage` | Load open bug beads and recent incident context. | Classify as `reproduce`, `deduplicate`, `fix-now`, `defer`, or `close-invalid`. | Add logs, duplicate beads, owners, and affected files. | Ask for confirmation before closing, deduplicating, or reprioritizing. | Update the bead via `bd`, create dependencies, or close invalid reports. | Append bead notes or audit rows for the classification and action. |
-| `intake-planned` | Load transcript segments or raw intake items. | Classify as `create-bead`, `append-to-bead`, `ask-clarifying-question`, `discard`, or `route-to-sibling`. | Add related open beads, sibling repo hints, and domain labels. | Present proposed bead actions before creating or moving work. | Create or update beads through `bd` after approval. | Record the intake item, target bead or repo, and rationale. |
-| `workplan-planned` | Load open backlog beads for the selected scope. | Classify as `keep`, `fold`, `weed`, `move-to-sibling`, or `cluster-into-epic`. | Add duplicate matches, premise checks, history, and domain clusters. | Batch destructive or cross-repo decisions with recommended outcomes. | Close, update, move, or relate beads through `bd` and configured repo tooling. | Append `.beads/triage-audit.jsonl` rows for every applied change. |
+| `bug-triage` | Load open bug issues through `ccore tracker list` and recent incident context. | Classify as `reproduce`, `deduplicate`, `fix-now`, `defer`, or `close-invalid`. | Add logs, duplicate issues, owners, and affected files. | Ask for confirmation before closing, deduplicating, or reprioritizing. | Update, relate, or close the issue through `ccore tracker`. | Comment the classification and action on the issue or append an audit row. |
+| `intake-planned` | Load transcript segments or raw intake items. | Classify as `create-issue`, `append-to-issue`, `ask-clarifying-question`, `discard`, or `route-to-sibling`. | Add related open issues, sibling repo hints, and domain clusters. | Present proposed issue actions before creating or moving work. | Create or update issues through `ccore tracker` after approval. | Record the intake item, target issue or repo, and rationale. |
+| `workplan-planned` | Load the open hosted issues of the selected scope through `ccore tracker list`. | Classify as `keep`, `fold`, `weed`, `move`, or `cluster`. | Add duplicate matches, author-check hygiene, premise checks, history, dependencies, and domain clusters. | Batch destructive or cross-repo decisions with recommended outcomes. | Close, update, create, or relate issues through `ccore tracker`. | Comment the before and after state, actor, reason, and trigger on each changed issue. |
 
 ## Compliance
 

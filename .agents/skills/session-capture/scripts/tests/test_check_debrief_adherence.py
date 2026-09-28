@@ -198,7 +198,7 @@ class TestLoadExemptions(unittest.TestCase):
         self.assertIsInstance(exemptions, set)
         self.assertIn("explorer", exemptions)
         self.assertIn("researcher", exemptions)
-        self.assertIn("bead-orchestrator", exemptions)
+        self.assertIn("doc-changelog-updater", exemptions)
 
     def test_loads_from_standard_doc(self):
         """Reads exemptions from the allowlist section in the standard doc."""

@@ -127,7 +127,7 @@ These principles have one override: **shipping working software**. If following 
 
 1. Ship the pragmatic solution
 2. Document the shortcut
-3. Create an author-checked P3 refactor task with `bd create --body-file <file>`
+3. Create an author-checked refactor task with `ccore tracker create --repo <prefix> --body-file <file>`
 4. Move on
 
 Perfection is the enemy of done.

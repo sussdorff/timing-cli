@@ -29,7 +29,7 @@ Applies to prose a person reads.
 Does **not** apply to:
 
 - Structured output — JSON returns, tool arguments, schema field values.
-- Bead field structure, Acceptance Criteria wording driven by `bead-hygiene`, and
+- Issue body structure, Acceptance Criteria wording driven by `issue-intake`, and
   reviewer finding shapes.
 - Code, identifiers, log messages, and error strings. `english-only` governs those.
 - Quoted material, command output, and file contents.

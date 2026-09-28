@@ -25,14 +25,16 @@ def test_skill_declares_routing_persistence_and_bootstrap_contracts() -> None:
         "requires_mandate": True,
     }
     assert ".intake/context-handoff/<session-id>.md" in skill
-    assert "Never select a Bead merely because it is claimed or in progress elsewhere" in skill
+    assert "Never select an issue merely because it is assigned or in progress elsewhere" in skill
     assert "never substitute a timestamp or invented ID" in skill
     assert "Continuation Point" in skill
     assert "Do not create any other documentation file" in skill
-    assert "bd note <id> --file <handoff-file>" in skill
+    assert "ccore tracker comment <owner/repo#N> --body" in skill
     assert "append a clearly separated new `Context Handoff` section and preserve prior sections" in skill
     assert "Read <data.path> as context from the previous chat" in skill
-    assert "Read the latest Context Handoff note on Bead <id> with bd show <id> --json" in skill
+    assert "Read the latest Context Handoff comment on <owner/repo#N> (<html_url>)" in skill
+    assert "bd " not in skill
+    assert "Bead" not in skill
     assert "Call `/clear`, `/compact`" in skill
     assert "proceed only after `ALLOW`" in skill
     assert "worktree-local" in skill

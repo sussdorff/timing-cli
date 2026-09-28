@@ -13,7 +13,7 @@
 #
 # Delivery contract. A standard reaches a model only where a consuming skill or
 # agent declares `requires_standards:` (NORMATIVE, meta/docs/primitives/standard.md).
-# For bead-hygiene.md that means the primitives declaring it — currently
+# For issue-intake.md that means the primitives declaring it — currently
 # skills/intake and skills/workplan. Its
 # short always-on summary in runtime-configs/AGENTS.md is a separate delivery path,
 # maintained by hand and not derived from this file.
@@ -38,29 +38,19 @@ files:
   - session capture
   - agent session
   - open-brain agent
-  bead-spec.md:
-  - beads
-  - bd create
-  - bd show
-  - nlspec
-  - bead spec
-  - spec-driven
-  - software factory
-  - acceptance criteria
-  bead-hygiene.md:
-  - beads
-  - bd create
-  - bd update
+  issue-intake.md:
+  - hosted issue
+  - issue body
+  - ccore tracker create
+  - ccore tracker update
   - intake
   - decompose
   - decomposition
-  - split into beads
-  - break into beads
-  - how many beads
-  - epic
-  - sub-bead
-  - child bead
-  - one requirement one bead
+  - split into issues
+  - how many issues
+  - sub-issue
+  - child issue
+  - one requirement one issue
   - over-decomposition
   code-review.md:
   - code review
@@ -145,14 +135,6 @@ files:
   - coverage
   - mock
   - assertion
-  uat-config-schema.md:
-  - uat
-  - uat-config
-  - holdout
-  - smoke test
-  - user acceptance
-  - playwright
-  - uv tool install
   verification-discipline.md:
   - verification
   - verify
