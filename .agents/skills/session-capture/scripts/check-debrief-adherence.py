@@ -6,11 +6,10 @@ Checks all agent .md files under agents/ directories for the mandatory
 ### Debrief block with all four required #### headings.
 
 Required agents (must have debrief template):
-    implementer, tdd-test-author, review-agent, verification-agent
+    implementer, review-agent
 
 Exempt agents (by design — no debrief required):
-    explorer, researcher, general-purpose, changelog-updater,
-    bead-orchestrator, quick-fix
+    explorer, researcher, general-purpose, doc-changelog-updater
 
 The exemption list is read from the standard doc at runtime:
     ~/.agents/standards/agents/debrief-contract.md
@@ -52,10 +51,7 @@ _FALLBACK_EXEMPTIONS: set[str] = {
     "explorer",
     "researcher",
     "general-purpose",
-    "changelog-updater",
     "doc-changelog-updater",
-    "bead-orchestrator",
-    "quick-fix",
 }
 
 # Default standard doc location

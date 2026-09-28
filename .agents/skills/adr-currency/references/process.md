@@ -4,7 +4,7 @@
 
 - **LIVE-ACCURATE** — current and matches code. Keep; trim pure history.
 - **LIVE-DRIFTED** — decision still in force, wording or mechanism diverged. Rewrite in place and bump `date`.
-- **ASPIRATIONAL** — unbuilt and not in force. Demote to a bead, then `git rm` the ADR.
+- **ASPIRATIONAL** — unbuilt and not in force. Demote to a hosted issue (`ccore tracker create`), then `git rm` the ADR.
 - **DEAD-REMOVED** — describes something explicitly removed. `git rm`.
 - **SUPERSEDED** — a newer ADR replaces it. `git rm` the old record (or rewrite the topic in place).
 - **REDUNDANT** — overlaps another ADR. Merge, then `git rm` the duplicate.
@@ -12,7 +12,7 @@
 ## Trim rules for live ADRs
 
 Strip revision notes, amendment logs, migration diaries, "not yet implemented"
-sections, and inline bead-ID status blocks. Keep every live decision and every
+sections, and inline work-item status blocks. Keep every live decision and every
 valid `prohibits`. Follow `docs/adr/AUTHORING.md` when the repository has one.
 
 ## Grounding

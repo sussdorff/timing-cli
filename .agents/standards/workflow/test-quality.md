@@ -110,9 +110,8 @@ This standard provides universal principles. Framework-specific depth comes from
 
 | Framework | Skill (if available) | What It Adds |
 |-----------|---------------------|--------------|
-| Pester | `pester-testing` | InModuleScope, ParameterFilter, PowerShell 5.1 quirks |
 | pytest | Python standards | Fixtures, conftest patterns, parametrize |
-| Jest/Vitest | (future) | Module mocking, snapshot testing, async patterns |
+| bun test / Vitest / node --test | [TypeScript test-suite upkeep](../typescript/test-suite-upkeep.md) | Value review, parallel settings per runner, sleep rule, isolation, pre-push hook |
 | Go testing | (future) | Table-driven tests, testify patterns |
 
 A test-writing agent detects the project's framework from these signals and loads the matching skill when one exists.

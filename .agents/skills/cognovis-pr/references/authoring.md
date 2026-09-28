@@ -1,7 +1,7 @@
 # Pull request authoring contract
 
-The body follows the `pr` skill template from the Matt Pocock catalog, which
-credits `show-me` by Dex Horthy (Humanlayer). Two Cognovis sections and the
+The body follows the template of Matt Pocock's globally installed `pr` skill,
+which credits `show-me` by Dex Horthy (Humanlayer). Two Cognovis sections and the
 ccore handoff are added here. Skip preambles; keep prose brief; use the
 repository's own domain language.
 
@@ -112,14 +112,13 @@ Run this over the finished text. It is the working subset of
 ## Handoff to ccore
 
 Write the file outside the worktree, for example `/tmp/pr-<branch>.md`, and pass
-its full content as the Session Close summary:
+its full content as the pull request summary:
 
 ```bash
-ccore session-close run ... --summary "$(cat /tmp/pr-<branch>.md)"
+ccore pr ensure --repo <worktree> --summary "$(cat /tmp/pr-<branch>.md)"
 ```
 
 ccore takes line one as the title, truncated at 120 characters, keeps the whole
 text as the body, and appends the identity footer with harness, session, and
-work-order references. Publication
-through `ccore pr ensure`, delivery choice, merge, push, and cleanup stay with
-Session Close.
+work-order references. The merge decision stays with the `executive-pack`
+delivery.

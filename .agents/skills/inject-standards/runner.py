@@ -11,8 +11,9 @@ Usage:
 
 When any of --full-out/--paths-out/--refs-out is given, --mode is ignored and the
 matching outputs are written to the given paths in a single discovery pass.
-This lets callers (e.g. bead-orchestrator Phase 1) materialize multiple modes
-without paying the discovery + context-filter cost twice.
+This lets a caller that needs several modes (for example a delivery owner
+preparing an implementation prompt) materialize them without paying the
+discovery + context-filter cost twice.
 """
 from __future__ import annotations
 

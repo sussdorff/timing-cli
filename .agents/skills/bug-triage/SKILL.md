@@ -58,13 +58,13 @@ Implement a minimal fix. One concern only: fix the bug.
 - No cleanup, no refactoring, no opportunistic improvements.
 - Touch only the files necessary to fix the confirmed root cause.
 - Leave unrelated refactoring untouched and mention it in the report; do not file
-  speculative follow-up beads.
-- Use the existing bead. If a new work order is needed, author it inline through
+  speculative follow-up issues.
+- Use the existing issue. If a new work order is needed, author it inline through
   intake before implementation; touching multiple files does not justify a duplicate.
 - A diagnosis request alone does not authorize a fix. For an authorized fix, the
   current implementation owner keeps source and repairs.
 
-Keep that bug bead proportional:
+Keep that bug issue proportional:
 
 - Default to one AC for the reported failing case.
 - Add one adjacent control-case AC only when the fix can plausibly regress it.
@@ -74,7 +74,7 @@ Keep that bug bead proportional:
   health checks, or push preflight unless the reported defect itself crosses that
   boundary.
 
-Then proceed with the fix, referencing the bead ID in the commit message.
+Then proceed with the fix, referencing the issue (`owner/repo#N`) in the commit message.
 </execution>
 
 ## Phase 4: Regression Test
@@ -117,4 +117,4 @@ delivery gates. They are not additional bug Acceptance Criteria or MoC evidence.
 
 ## Reference
 
-- Bead mutation gateway: author check followed by direct `bd create --body-file`
+- Issue creation: the intake author check followed by `ccore tracker create --body-file`

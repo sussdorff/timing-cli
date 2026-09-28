@@ -43,12 +43,12 @@ All subcommands support `--json` for machine-readable output.
 
 ## Common Patterns
 
-### Save a session summary (end of bead run)
+### Save a session summary (end of a delivery)
 ```bash
 ob save "Implemented X, discovered Y, decided Z because W." \
   --type=session_summary \
   --project=<project-name> \
-  --title="Bead CL-xxx: <outcome>"
+  --title="cognovis/<repo>#<N>: <outcome>"
 ```
 
 ### Recall past work before starting
@@ -59,10 +59,10 @@ ob context --project=<project-name>
 
 ### Save an architectural decision
 ```bash
-ob save "Use Dolt for beads tracking — provides git-like versioning for structured data." \
+ob save "Track work in hosted Forgejo issues through ccore tracker — one tracker per repository." \
   --type=decision \
   --project=library \
-  --title="ADR: Use Dolt for beads"
+  --title="ADR: Track work in hosted issues"
 ```
 
 ### Search with filters

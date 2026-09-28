@@ -3,7 +3,7 @@ name: session-capture
 description: >-
   use when: closing a non-coding or analysis session that produced durable
   decisions, discoveries, or learnings. Captures them to Open Brain without Git,
-  Beads, Docker, worktree cleanup, or ccore Session Close.
+  Beads, Docker, worktree cleanup, or a delivery retro.
 requires:
   - skill:ob-cli
 requires_standards: [workflow/agent-session-capture]
@@ -13,7 +13,7 @@ disableModelInvocation: true
 # Session Capture
 
 Capture durable session knowledge only. This is the lightweight neighbour of
-`session-close`, not an alternate coding-finalization workflow.
+`session-retro`, not an alternate coding-delivery workflow.
 
 ## Inputs
 
@@ -46,11 +46,9 @@ Capture durable session knowledge only. This is the lightweight neighbour of
 - Do not perform Git integration, commits, pushes, or branch operations.
 - Do not claim, update, close, sync, or infer Beads.
 - Do not stop Docker containers or clean worktrees.
-- Do not invoke `ccore session-close`.
+- Do not merge pull requests or run the delivery retro.
 
-Coding delivery uses `session-close`, which retains the ordered
-`stop -> contain -> finalize -> remember -> cleanup` state machine and its
-memory-before-cleanup invariant.
+Coding delivery ends in the `executive-pack` merge decision and `session-retro`.
 
 ## Tool-argv Shape
 

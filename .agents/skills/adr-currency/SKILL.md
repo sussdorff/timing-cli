@@ -15,13 +15,13 @@ action_boundary:
 # ADR Currency Audit
 
 Re-baseline `docs/adr/` to present-tense, current-state records. History
-lives in git. Pending work lives in beads.
+lives in git. Pending work lives in hosted issues.
 
 ## Inputs
 
 - The repository `docs/adr/` corpus (plus package-local `docs/adr/` if present).
 - `docs/adr/AUTHORING.md` when the repo has one.
-- Current code, `CONTEXT.md`, and live beads.
+- Current code, `CONTEXT.md`, and live hosted issues (`ccore tracker`).
 
 ## Outputs
 

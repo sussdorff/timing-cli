@@ -4,7 +4,7 @@ Git workflow practices for safe, clean version control. Complements `git/convent
 
 ## Trigger Context
 
-Apply during implementation when committing, and in Session Close when pushing and tagging.
+Apply during implementation when committing, and when publishing the pull request, pushing and tagging.
 
 ## Commit Practices
 
@@ -125,4 +125,4 @@ If you're unsure whether a git operation is safe:
 
 - **Bead authoring**: No git operations
 - **Implementation**: Creates atomic commits following conventional format
-- **Session Close**: Pushes, tags per the artifact's version scheme (`sdk-versioning`), optionally creates MR/PR
+- **Publication** (`executive-pack`): pushes, tags per the artifact's version scheme (`sdk-versioning`), creates the PR with `ccore pr ensure`

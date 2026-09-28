@@ -107,7 +107,10 @@ def test_decision_gate_field_set_is_disjoint_from_mandate_required_fields() -> N
 def test_no_typed_decision_gate_bead_schema_field_is_introduced() -> None:
     assert not (ROOT / "mcp-servers").exists()
 
-    scanned_files = [ROOT / "scripts" / "bead-author-check.py"]
+    # library-core#74 admission: the author check moved from scripts/ into the
+    # intake skill (.git/delivery/admission-library-core-74.md seam 1).
+    scanned_files = [ROOT / "skills" / "intake" / "scripts" / "issue-author-check.py"]
 
     for path in scanned_files:
+        assert path.is_file(), f"Missing scanned author check: {path}"
         assert "metadata.decision_gates" not in _read(path)

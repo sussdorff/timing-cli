@@ -46,28 +46,19 @@ Module or area, for example: `compliance`, `platform`, `api`, `cli`
 ### Issue Reference
 
 ```
-Closes: project-123
-Refs: project-456
-```
-
-### Agent Attribution
-
-When an AI agent creates the commit:
-
-```
-Agent: claude-opus-4.5
+Closes: cognovis/project#123
+Refs: cognovis/project#456
 ```
 
 ## Examples
 
 ```bash
-# Feature with scope and bead reference
+# Feature with scope and issue reference
 feat(compliance): Add Password Policy check
 
 Implements the check with Windows/macOS support.
 
-Closes: zahnrad-abc
-Agent: claude-opus-4.5
+Closes: cognovis/zahnrad#12
 ```
 
 ```bash
@@ -78,7 +69,7 @@ Migration to Python complete.
 
 BREAKING CHANGE: ZahnradCompliance.psm1 removed
 
-Closes: zahnrad-xyz
+Closes: cognovis/zahnrad#13
 ```
 
 ```bash
@@ -89,7 +80,7 @@ fix: Resolve null pointer in parser
 ## What Does NOT Belong in a Commit
 
 Detailed decision rationale belongs in:
-- **Beads notes** (for traceable documentation)
+- **Hosted issue comments** (for traceable documentation)
 - **Audit log** (for learnings and assumptions)
 
 Commits stay lean and focused.

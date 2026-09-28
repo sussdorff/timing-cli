@@ -220,6 +220,5 @@ without a `||` clause) is forbidden when standards loading is MANDATORY.
 ### Runner path resolution
 
 When `INJECT_STANDARDS_RUNNER` env var is set, use that path. Otherwise resolve
-relative to the caller's expected install location (e.g. `$(dirname
-"$BEADS_RUNTIME")/inject-standards/runner.py`) and fall back to the
+relative to the caller's expected install location (e.g. `<installed skills root>/inject-standards/runner.py`) and fall back to the
 project-local `skills/inject-standards/runner.py`.

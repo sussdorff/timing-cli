@@ -1,6 +1,6 @@
 ---
 name: cognovis-pr
-description: Write the pull request title and body for a Cognovis delivery from the pr template plus evidence and residual sections; ccore owns publication and merge.
+description: Write the pull request title and body for a Cognovis delivery from the pr template plus evidence and residual sections; `ccore pr ensure` publishes it.
 compatibility: {}
 metadata: {}
 ---
@@ -8,8 +8,8 @@ metadata: {}
 # Cognovis Pull Requests
 
 Write one outcome-led pull request text that a reviewer can judge in a minute.
-This skill produces text only. `ccore pr ensure` publishes it and Ccore Session
-Close owns delivery choice, integration, merge, push, and cleanup. The Forgejo
+This skill produces text only. `ccore pr ensure` publishes it; the `executive-pack`
+delivery owns the merge decision. The Forgejo
 review channel is operated by `forgejo-review-channel`, not here.
 
 ## Inputs
@@ -26,15 +26,15 @@ review channel is operated by `forgejo-review-channel`, not here.
 
 ## Workflow
 
-1. Read `references/authoring.md`. When the `pr` skill from the Matt Pocock
-   catalog is installed, its template is the same one; this reference adds the
-   Cognovis sections and the handoff.
+1. Read `references/authoring.md`. Matt Pocock's `pr` skill, installed globally
+   by harness bootstrap, uses the same template; this reference adds the Cognovis sections
+   and the handoff.
 2. Write Summary, Evidence, Merge Danger and Known residuals. Pick the smallest
    Summary view that makes the change legible; do not narrate files.
 3. For a user-visible surface, capture two to four walkthrough screenshots and
    attach them after the pull request exists, per the reference.
 4. Run the unslop checklist in the reference over the text.
-5. Hand the file to Session Close as its `--summary` value. Do not add the
+5. Pass the file to `ccore pr ensure` as its `--summary` value. Do not add the
    identity footer; ccore appends harness, session and work-order identity.
 
 ## Do NOT

@@ -9,7 +9,7 @@ when a human decision owner must choose among judge-layer outcomes after seeing 
 Decision Brief. It is not a runtime authorization record and it is not a typed
 bead schema field.
 
-The only authoring representation in beads is a markdown section named:
+The only authoring representation in a work-order body is a markdown section named:
 
 ```markdown
 ## Human Decision Gate

@@ -37,7 +37,7 @@ from typing import Optional
 # Section extraction
 # ---------------------------------------------------------------------------
 
-# The four canonical heading names (matching session-close Step 11 taxonomy)
+# The four canonical heading names of the debrief contract
 _SECTION_HEADINGS: dict[str, str] = {
     "key_decisions": "Key Decisions",
     "challenges_encountered": "Challenges Encountered",

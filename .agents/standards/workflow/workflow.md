@@ -1,27 +1,25 @@
 ---
 domain: workflow
-description: The shared development workflow — bead specification and hygiene, review and verification discipline, engineering practice, and the cross-cutting rules that apply to every repository tracking work in beads.
+description: The shared development workflow — hosted-issue intake and specification, review and verification discipline, engineering practice, and the cross-cutting rules that apply to every repository tracking work in hosted issues.
 ---
 
 # Workflow Standards
 
 > **Scope**: The end-to-end development workflow, from a raw request through a
-> factory-ready bead, implementation, review, and closeout. Language-agnostic;
-> applies to every repository that tracks work in beads.
+> factory-ready work order, implementation, review, and closeout. Language-agnostic;
+> applies to every repository that tracks work in hosted issues.
 
 The orchestration itself is not described here. Authoring lives in the `intake`
-skill, execution in the `executive-pack` Repository Delivery contract over
-`implementation-loop`, and closeout in `session-close`. This bundle holds the
+skill, delivery from grilling to the merge decision and `session-retro` in the
+`executive-pack` skill. This bundle holds the
 standards those skills apply.
 
 ## Specification and Backlog
 
 | File | Topic |
 |------|-------|
-| [bead-spec.md](bead-spec.md) | Description-first bead specs |
-| [bead-hygiene.md](bead-hygiene.md) | Library default hygiene rules plus the overlay format |
+| [issue-intake.md](issue-intake.md) | Hosted-issue body contract, library default rules plus the overlay format |
 | [factory-ready.md](factory-ready.md) | The spec quality gate for autonomous execution |
-| [backlog-refinement.md](backlog-refinement.md) | Keeping the backlog decision-ready |
 | [triage-pattern.md](triage-pattern.md) | Routing raw input into keep, fold, weed, move, cluster |
 
 ## Review and Verification
@@ -29,7 +27,6 @@ standards those skills apply.
 | File | Topic |
 |------|-------|
 | [code-review.md](code-review.md) | Universal quality patterns a review looks for |
-| [cross-bead-review.md](cross-bead-review.md) | Reviewing a closed cohort for coherence |
 | [verification-discipline.md](verification-discipline.md) | Evidence over assertion; discharging Means of Compliance |
 | [agent-quality-gates.md](agent-quality-gates.md) | The gates an agent must clear before reporting success |
 | [test-quality.md](test-quality.md) | Universal testing principles |
@@ -52,5 +49,4 @@ standards those skills apply.
 | [agent-session-capture.md](agent-session-capture.md) | What an agent records when a session closes |
 | [production-feedback.md](production-feedback.md) | Signal classification and triage from production |
 | [production-feedback-example.md](production-feedback-example.md) | A worked example of the feedback loop |
-| [uat-config-schema.md](uat-config-schema.md) | Configuration schema for UAT runs |
 | [parameters.md](parameters.md) | The optional parameters array in workflow meta blocks |

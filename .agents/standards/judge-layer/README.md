@@ -9,12 +9,11 @@ The judge layer is the **judgment slot** in Nate Jones's managed-worker model.
 It is the system that decides whether a proposed side effect is allowed to
 execute, before the actor runs it. It is distinct from:
 
-- **Orchestration** (who does the work) — `bead-orchestrator`
-- **Coordination** (how work moves) — beads / bd
+- **Orchestration** (who does the work) — `executive-pack`
+- **Coordination** (how work moves) — hosted issues via `ccore tracker`
 - **Continuity** (what is remembered) — OpenBrain
-- **Post-action review** — `review-agent` reviews committed code;
-  `verification-agent` verifies completion claims; both run *after* work has
-  happened. The judge layer runs *before*.
+- **Post-action review** — `review-agent` reviews committed code; it runs
+  *after* work has happened. The judge layer runs *before*.
 
 See `library/meta/docs/managed-worker-stack.md` for the full slot model and
 `cognovis-core/docs/adr/ADR-0003-judge-layer-architecture.md` for the
@@ -33,7 +32,7 @@ decision controls used before human escalation.
 | [`provenance-labels.md`](provenance-labels.md) | Six-label evidence system (`observed`, `inferred`, `generated`, `confirmed`, `disputed`, `superseded`), transition rules | Tagging evidence references in proposals, mandates, or memory writes |
 | [`mandate-schema.md`](mandate-schema.md) | AP2-style authorization-as-evidence record (scope, limits, evidence, granted_at, expires_at, supersedes) | Representing user authorization that needs to travel with the proposal |
 | [`decision-brief.md`](decision-brief.md) | Compact manager view plus evidence appendix for human operational decisions | Presenting a manager-decidable gate without asking the manager to audit code |
-| [`decision-gate.md`](decision-gate.md) | `## Human Decision Gate` authoring contract mapped to judge outcomes | Authoring a human decision point in a bead |
+| [`decision-gate.md`](decision-gate.md) | `## Human Decision Gate` authoring contract mapped to judge outcomes | Authoring a human decision point in a work-order issue |
 | [`stop-taxonomy.md`](stop-taxonomy.md) | Stop vocabulary and operational-risk rules crosswalked to ADR-0003 | Deciding when delivery pressure, risk, evidence, or authority requires a stop |
 | [`judge-eval-suite.md`](judge-eval-suite.md) | Eval discipline: ≥20 cases, all four outcomes, ≥4 ALLOW cases, nine required metrics | Shipping a new judge agent; auditing an existing one |
 
@@ -93,10 +92,8 @@ Three steps:
    precedence (`BLOCK > ESCALATE > REVISE > ALLOW`). For REVISE, apply the
    `revised_proposal` and submit once more.
 
-The repository delivery owner handles steps 2 and 3 for any skill declaring
-`action_boundary` with `risk_class: external-side-effect` or `high-risk`. See
-the `action_boundary` block in `cognovis-core/skills/implementation-loop/SKILL.md`
-for a declaring skill.
+The session that invokes a skill declaring `action_boundary` with
+`risk_class: external-side-effect` or `high-risk` handles steps 2 and 3.
 
 ## How a Judge Agent Wires Into the Judge Layer
 
@@ -137,13 +134,12 @@ precedence.
 | Consumer | Repo path | What it judges |
 |----------|-----------|----------------|
 | Memory-Write Judge | `open-brain/python/src/open_brain/memory_write_judge.py` | OpenBrain `save_memory` calls with structured 7-field proposals |
-| Pre-action gate | `cognovis-core/skills/implementation-loop/SKILL.md` §`action_boundary` | Any side-effecting skill invoked during a repository delivery |
+| Pre-action gate | a skill's `action_boundary` block, handled by the invoking session | Any side-effecting skill invoked during a repository delivery |
 | (Future) Action-Proposal CLI | `cognovis-core/standards/judge-layer/scripts/validate_action_proposal.py` is the deterministic validator; downstream consumers wire it into their orchestrator path |
 
 ## What This Layer Is Not
 
-- **Not a post-action reviewer.** Use `review-agent` for committed code review;
-  `verification-agent` for completion-claim verification.
+- **Not a post-action reviewer.** Use `review-agent` for committed code review.
 - **Not a hook or guardrail.** Hooks fire unconditionally based on
   deterministic rules with no model reasoning. The deterministic portion of
   the judge layer can run as a hook-equivalent; the reasoned portion cannot.

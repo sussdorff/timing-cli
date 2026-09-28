@@ -85,7 +85,7 @@ python3 meta/skills/agent-forge/scripts/validate-agent.py --strict .claude/agent
 
 These agents have been updated with all 4 sections:
 
-- `agents/plan-reviewer.md` -- Read-only plan challenge advisor
+- `agents/implementer.md` -- Implementation subagent of a delivery
 - `agents/home/prompt.md` -- Infrastructure agent (split format)
 
 ## Integration with Software Factory

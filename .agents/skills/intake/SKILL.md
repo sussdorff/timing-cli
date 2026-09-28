@@ -1,8 +1,8 @@
 ---
 name: intake
 description: Turn notes, bug reports or initiatives into author-checked hosted issues; continue to delivery when the request authorizes implementation.
-requires: [standard:workflow/bead-hygiene, skill:bug-triage, skill:executive-pack, script:triage/query_history]
-requires_standards: [workflow/bead-hygiene, writing/plain-technical-english, writing/unslop, writing/unambiguous-english]
+requires: [standard:workflow/issue-intake, skill:bug-triage, skill:executive-pack]
+requires_standards: [workflow/issue-intake, writing/plain-technical-english, writing/unslop, writing/unambiguous-english]
 ---
 
 # Intake
@@ -12,12 +12,17 @@ source: creating a work order and implementing it are different requested outcom
 This active session remains the original author; do not delegate authoring. Never
 run issue review automatically; review is a separate explicitly requested action.
 
+The helpers ship in `scripts/` of the **installed** intake skill root, not the
+marketplace source path. Resolve `$INTAKE_ROOT` local-first and fail closed if none
+exists: `<repo>/.agents/skills/intake`, `<repo>/.claude/skills/intake`,
+`~/.agents/skills/intake`, `~/.claude/skills/intake`. Never search the filesystem.
+
 ## Establish the request
 
 Read the provided source and preserve it in local .intake scratch space. With no
 source, ask for the missing input. Before extraction, read
-[history.md](references/history.md) and run query_history.py at one of its bounded
-paths. Surface duplicate matches before creating another work order.
+[history.md](references/history.md) and run `scripts/issue_history.py` for the
+target repository. Surface duplicate matches before creating another work order.
 
 Classify the requested outcome by meaning:
 
@@ -45,29 +50,30 @@ evidence is pending. Do not turn an initiative into an epic automatically.
 
 ## Author and persist
 
-Read [authoring.md](references/authoring.md) for the field contract, including
+Drafting happens **inline** in this session. Do not spawn an agent. Read
+[authoring.md](references/authoring.md) for the body contract, including
 classification_evidence, AC/MoC, Review-Risk and any genuine Human Decision Gate.
-Draft the body inline and validate before `ccore tracker create` or
-`ccore tracker` comment/close with `--body-file`. `ccore tracker` is the single
-interface: registry entries must declare `github` or `forgejo`. Unhosted
-entries fail closed. Probe only <repo>/scripts/bead-author-check.py, then
-~/.agents/scripts/bead-author-check.py. If both are missing, report that limitation
-and continue without validation; never search the entire filesystem.
+Validate the drafted body with `$INTAKE_ROOT/scripts/issue-author-check.py --body-file`
+before `ccore tracker create --body-file` or `ccore tracker update --body-file`.
+`ccore tracker` is the single interface: registry entries must declare `github` or
+`forgejo`. Unhosted entries fail closed. If the checker cannot be resolved, stop and
+report that limitation; an unvalidated body is never persisted.
 
-Revise validation failures before mutation. Every admitted issue, including chores,
-needs exactly one Review-Risk classification: none, payment, pii, auth or compliance.
+Revise validation failures before mutation. Every issue needs exactly one Review-Risk
+classification: none, payment, pii, auth or compliance. It is the work order's review
+risk; pr-agent applies it as the floor of the pull request's `review-risk:*` label.
 Use the original source and actual identifiers; do not invent evidence names.
 
 ## Continue according to authority
 
-Author-only ends after persistence and deterministic validation with the ID and
-check result. Author-and-execute invokes executive-pack in solo mode in this active
+Author-only ends after persistence and deterministic validation with the issue
+reference and check result. Author-and-execute invokes executive-pack in this active
 session; do not ask for another implementation confirmation. That skill owns the
-implementation entry path and resolves landing policy from the live issue body.
-Author-check failure never dispatches implementation. Manual review findings do not
-grant execution authority or upgrade an author-only request.
+implementation entry path. Author-check failure never dispatches implementation. Manual review findings do not grant execution authority or
+upgrade an author-only request.
 
-Report created/updated IDs, duplicate dispositions, validation results and whether
-delivery continued. Existing metadata/dependency updates use `ccore tracker comment`;
-substantive body updates use `ccore tracker update --ref --body-file` after the same
-inline author-check without a new intake lifecycle.
+Report created/updated issue references, duplicate dispositions, validation results
+and whether delivery continued. Existing metadata/dependency updates use
+`ccore tracker comment`; substantive body updates use
+`ccore tracker update --ref --body-file` after the same inline author-check without a
+new intake lifecycle.
