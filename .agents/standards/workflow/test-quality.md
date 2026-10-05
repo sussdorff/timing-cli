@@ -1,123 +1,50 @@
-# Test Quality: Universal Testing Principles
+# Test Quality
 
-Framework-agnostic test quality standards for test authors, implementation
-executors, and DoD Gate 3 (Test Coverage Verification).
+What counts as a test worth keeping is owned by the installed `tdd` skill, not by
+this standard. This file holds only the constraints that skill does not cover and
+that apply to every repository here.
 
-## Trigger Context
+## The method lives in the `tdd` skill
 
-Apply when writing, reviewing, or verifying unit tests in any framework (pytest, Jest, Vitest, Pester, Go testing, RSpec, etc.).
+Read `SKILL.md`, `tests.md` and `mocking.md` of the installed `tdd` skill from the
+first root that exists, project-local before global:
 
-## Core Principles
-
-### 1. Test Behavior, Not Implementation
-
-Tests assert WHAT the code does, not HOW it does it internally.
-
-```
-GOOD: "When user submits valid form, response is 201 Created"
-BAD:  "Function calls _validate() then _save() then _notify()"
+```text
+<repo>/.agents/skills/tdd   <repo>/.claude/skills/tdd
+~/.agents/skills/tdd        ~/.claude/skills/tdd
 ```
 
-If refactoring internals breaks tests without changing behavior, the tests are wrong.
+It owns seams, behaviour over implementation, the tautological and
+implementation-coupled anti-patterns, the vertical-slice loop and the mocking
+boundary. Do not restate those rules in a repository standard, an agent prompt or a
+work order; reference the skill. If no root has it, that is a setup failure to
+report, not permission to invent a replacement policy.
 
-### 2. Mock Dependencies, Not the Subject
+Auditing and repairing an existing suite is the `test-audit` skill, which a person
+runs as `/test-audit`. It is explicit-only: recommend it when a suite needs the
+review, and do not start one yourself.
 
-Mock external dependencies (database, API, filesystem). Never mock the function under test.
+## Environment independence
 
-```
-GOOD: Mock the HTTP client, test that your function handles the response correctly
-BAD:  Mock your function's return value and assert the mock worked
-```
+A test asserts nothing about the machine it runs on. No hardcoded home directories,
+no fixed ports, no wall-clock or timezone assumptions, no hostnames, no
+platform-specific path separators. Runner-specific isolation recipes live in
+[Python test-suite upkeep](../python-cli-patterns/test-suite-upkeep.md#isolation) and
+[TypeScript test-suite upkeep](../typescript/test-suite-upkeep.md#isolation).
 
-**Red flag**: If your test file has more mock setup than assertions, you're testing mocks, not code.
+## A skipped test is not evidence
 
-### 3. One Assertion Per Behavior
+A conditionally registered test passes green when it skips. Green-because-skipped
+discharges no Means of Compliance; report it as a `test-quality` finding and name the
+unreachable dependency. See
+[seed-data-parity.md](seed-data-parity.md#companion-rule-skipped-integration-tests-are-not-evidence).
 
-Each test validates one specific behavior. Multiple assertions are fine if they all verify the same behavior.
+## Framework-specific standards
 
-```
-GOOD: test_login_success: assert status 200, assert token present, assert user in session
-BAD:  test_login: assert success, assert failure, assert rate limit, assert lockout
-```
+| Runner | Standard |
+|--------|----------|
+| pytest | [Python test-suite upkeep](../python-cli-patterns/test-suite-upkeep.md) |
+| bun test / Vitest / node --test | [TypeScript test-suite upkeep](../typescript/test-suite-upkeep.md) |
 
-### 4. Tests Are Environment-Independent
-
-No hardcoded paths, machine-specific values, or timezone assumptions.
-
-| Anti-Pattern | Fix |
-|-------------|-----|
-| `/Users/john/project/data.json` | Use `tmp_path`, `tempfile`, or test fixtures |
-| `assert time == "14:30"` | Assert relative time or mock clock |
-| `assert hostname == "ci-server-1"` | Don't assert infrastructure details |
-| `assert output.contains("C:\\Windows")` | Use `os.sep` or platform-agnostic paths |
-
-### 5. Arrange-Act-Assert (AAA)
-
-Every test has three clear phases:
-
-```
-# Arrange: Set up preconditions
-user = create_test_user(role="admin")
-
-# Act: Execute the behavior under test
-result = delete_user(user.id)
-
-# Assert: Verify the outcome
-assert result.success is True
-assert User.objects.filter(id=user.id).count() == 0
-```
-
-### 6. Tests Must Fail for the Right Reason
-
-When writing tests before code (TDD RED phase), verify the failure message matches your expectation:
-
-```
-GOOD: "AssertionError: expected 201 but got 404" (endpoint doesn't exist yet)
-BAD:  "ImportError: cannot import 'UserService'" (infrastructure problem, not a behavior gap)
-```
-
-## Test Smells to Flag
-
-| Smell | Why It's Bad | Fix |
-|-------|-------------|-----|
-| Test mirrors implementation | Breaks on refactor | Test observable behavior |
-| Excessive mocking (>3 mocks) | Testing wiring, not logic | Simplify design or use integration test |
-| Sleep/wait in tests | Flaky, slow | Use polling/retries with timeout, or async await |
-| Shared mutable state | Order-dependent failures | Fresh fixtures per test |
-| Asserting exception type only | Misses wrong exception message | Assert message or code too |
-| No negative tests | Only tests happy path | Add error/edge case tests |
-| Test data as magic numbers | Unclear intent | Use named constants or builders |
-
-## Coverage Expectations
-
-### What to Cover
-
-- All new public functions/methods
-- All modified behavior (even one-line changes)
-- Error paths and edge cases
-- Boundary conditions (empty input, max values, null/nil)
-
-### What NOT to Require Coverage For
-
-- Pure data classes / DTOs with no logic
-- Framework boilerplate (app config, middleware registration)
-- Trivial getters/setters with no validation
-- Third-party library wrappers with no custom logic
-
-## Framework-Specific Extensions
-
-This standard provides universal principles. Framework-specific depth comes from skills:
-
-| Framework | Skill (if available) | What It Adds |
-|-----------|---------------------|--------------|
-| pytest | Python standards | Fixtures, conftest patterns, parametrize |
-| bun test / Vitest / node --test | [TypeScript test-suite upkeep](../typescript/test-suite-upkeep.md) | Value review, parallel settings per runner, sleep rule, isolation, pre-push hook |
-| Go testing | (future) | Table-driven tests, testify patterns |
-
-A test-writing agent detects the project's framework from these signals and loads the matching skill when one exists.
-
-## Usage in Workflow
-
-- **Bead authoring**: A bead's test-related Means of Compliance references these principles
-- **Implementation**: TDD cycles follow these principles
-- **Verification**: A test Means of Compliance is discharged against these principles
+These add runner operation — parallelism switches, isolation fixtures, subprocess and
+lint scope — on top of the `tdd` skill. They do not carry a second value method.

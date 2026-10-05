@@ -3,7 +3,7 @@ name: session-capture
 description: >-
   use when: closing a non-coding or analysis session that produced durable
   decisions, discoveries, or learnings. Captures them to Open Brain without Git,
-  Beads, Docker, worktree cleanup, or a delivery retro.
+  Docker, worktree cleanup, or a delivery retro.
 requires:
   - skill:ob-cli
 requires_standards: [workflow/agent-session-capture]
@@ -44,7 +44,7 @@ Capture durable session knowledge only. This is the lightweight neighbour of
 ## Exclusions
 
 - Do not perform Git integration, commits, pushes, or branch operations.
-- Do not claim, update, close, sync, or infer Beads.
+- Do not claim, update, close, or infer work orders.
 - Do not stop Docker containers or clean worktrees.
 - Do not merge pull requests or run the delivery retro.
 

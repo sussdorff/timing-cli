@@ -36,4 +36,4 @@ All three must be true:
 
 Skip the ADR when any test is missing. Use a BDR instead when the commitment is about what we sell or what we will not sell, not how we built it.
 
-After writing the ADR, add one index line under `CONTEXT.md` Decisions.
+After writing the ADR, add one index line under `docs/decisions.md`; see [GLOSSARY-FORMAT.md](GLOSSARY-FORMAT.md) for its shape.

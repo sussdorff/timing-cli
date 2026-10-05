@@ -7,7 +7,7 @@ Maturity: draft.
 A Human Decision Gate is an authoring-time markdown control point. It describes
 when a human decision owner must choose among judge-layer outcomes after seeing a
 Decision Brief. It is not a runtime authorization record and it is not a typed
-bead schema field.
+work order schema field.
 
 The only authoring representation in a work-order body is a markdown section named:
 
@@ -24,6 +24,7 @@ Related contracts: [Decision Brief](decision-brief.md), [Stop Taxonomy](stop-tax
 | Field | Type | Meaning |
 |-------|------|---------|
 | `decision owner` | string | Person, role, or standing owner who can make the decision. |
+| `approval class` | enum | `production-change` or `customer-message`; nothing else takes a gate. |
 | `allowed outcomes` | enum list | One or more judge outcomes: `ALLOW`, `BLOCK`, `REVISE`, `ESCALATE`. |
 | `trigger timing` | string | Phase, event, or condition that presents the gate. |
 | `minimum evidence plan` | string | Evidence that must be gathered before the gate is presented. |
@@ -32,8 +33,27 @@ Related contracts: [Decision Brief](decision-brief.md), [Stop Taxonomy](stop-tax
 | `overrideability` | string | Whether and by whom the gate can be overridden. |
 | `sequencing constraints` | string | Ordering constraints such as evidence-before-decision or gate-before-deploy. |
 
-Field labels in bead markdown SHOULD use title case, for example
+Field labels in work order markdown SHOULD use title case, for example
 `Decision owner:`. The validator treats labels case-insensitively.
+
+## When a Gate Exists
+
+A Human Decision Gate exists only for the two classes that need human approval
+(shared `AGENTS.md`, Scope and authorization):
+
+- `production-change`: changing a service customers use or one holding real
+  customer or patient data.
+- `customer-message`: sending a customer or partner a message with content.
+
+Internal work never takes a gate: own and managed machines, CI, Forgejo
+repositories, issues and secrets, the `cognovis-dev` vault, test and synthetic
+environments. Do not author one for them.
+
+One gate per work order, presented once. Its evidence plan lists every concrete
+action, target and rollback, and a single ALLOW covers that whole set, including
+retries, verification and rollback. Do not split one change into staged approvals
+such as preparation, credential creation, activation and CI runs; prepare all
+internal parts first and present the gate with that evidence.
 
 ## Outcome Boundary
 
@@ -77,6 +97,7 @@ declare evidence sufficient.
 ## Human Decision Gate
 
 Decision owner: Release manager.
+Approval class: production-change.
 Allowed outcomes: ALLOW, BLOCK, REVISE, ESCALATE.
 Trigger timing: Before deployment.
 Minimum evidence plan: Present rollback smoke test and deployment dry run.

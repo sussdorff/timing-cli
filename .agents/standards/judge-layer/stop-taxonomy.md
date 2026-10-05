@@ -21,8 +21,8 @@ Use ADR-0003's `risk_class` enum as the source of truth:
 |--------------|------------------------------------|----------------------|
 | `read-only` | Observation or inspection only; no system mutation. | Usually no human gate unless evidence is incomplete or sensitive. |
 | `reversible-write` | Local or bounded mutation with a concrete rollback path. | Gate when rollback confidence, sequencing, or ownership is uncertain. |
-| `external-side-effect` | Action affects an external system, recipient, deployment, or shared service. | Gate unless a current Mandate or explicit policy already authorizes the action. |
-| `high-risk` | Irreversible, security-sensitive, production-critical, credential, financial, or broad-impact action. | Stop by default until independent concurrence or a valid Mandate resolves authority. |
+| `external-side-effect` | Action affects an external system, recipient, deployment, or shared service. | Gate only for a production change or a customer message; internal systems (CI, Forgejo, managed hosts, the `cognovis-dev` vault) are authorized by policy. |
+| `high-risk` | Irreversible, security-sensitive, production-critical, credential, financial, or broad-impact action. | On production or customer data: stop until the owner's ALLOW or a valid Mandate. Internal credentials and hosts: proceed under policy with independent review. |
 
 ## Crosswalk to Judge Outcomes
 
@@ -55,12 +55,12 @@ The composition precedence remains ADR-0003's `BLOCK > ESCALATE > REVISE > ALLOW
 |------------|---------|--------------------|
 | `schema-stop` | Required fields, evidence references, or outcome vocabulary are missing. | `REVISE` or `ESCALATE`; structural validator output is sufficient evidence of the shape defect. |
 | `evidence-stop` | The action lacks required executable or read-only evidence. | `REVISE` until evidence exists; human approval alone is not evidence. |
-| `authorization-stop` | No current Mandate or explicit owner approval authorizes the side effect. | `ESCALATE` to the decision owner or provide a valid Mandate reference. |
+| `authorization-stop` | No current Mandate, explicit owner approval, or policy (shared `AGENTS.md`, Scope and authorization) authorizes the side effect. | `ESCALATE` to the decision owner or provide a valid Mandate reference. |
 | `risk-stop` | Blast radius, reversibility, timing, or do-nothing cost is judgmental. | `ESCALATE` to the decision owner with a Decision Brief. |
 | `policy-stop` | A policy prohibits the action. | `BLOCK`; human approval cannot override the prohibition unless the policy itself permits that exception path. |
 
 ## Incident Reference
 
 `clc-h4nm` is the non-blocking incident reference that motivated this standard.
-Its old-regime authorization remains recorded for that bead; this standard
+Its old-regime authorization remains recorded for that work order; this standard
 governs new authoring and readiness checks going forward.

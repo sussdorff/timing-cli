@@ -10,7 +10,7 @@ deterministically:
   still enters repair when it is bound to an admitted criterion (a missing case
   lives in a file the change did not touch) or when it is a High or Critical
   finding on the change's own behaviour (a live caller the change breaks). The
-  implementer repairs this set in one round.
+  delivery's designated repair author repairs this set in one round.
 - ``repaired``: findings the main session marks as fixed by the repair commit
   (``--repaired <finding-id>``, repeatable). They are reported as repaired
   whatever their severity, scope or the repair rounds used, and never enter
@@ -39,6 +39,9 @@ SEVERITIES = ("nit", "low", "medium", "high", "critical")
 REPAIR_SEVERITIES = frozenset({"medium", "high", "critical"})
 OUTSIDE_DIFF_BEHAVIOUR_SEVERITIES = frozenset({"high", "critical"})
 OWN_BEHAVIOUR = "own-behaviour"
+# Reviewers write the own-behaviour scope in several spellings; every one of them must
+# reach triage as own behaviour instead of being dropped as NO_ADMITTED_SCOPE.
+OWN_BEHAVIOUR_SPELLINGS = frozenset({"behaviour", "behavior", "own-behaviour", "own-behavior"})
 MAX_REPAIR_ROUNDS = 1
 
 
@@ -99,7 +102,7 @@ def triage_findings(
         paths = [str(p) for p in (finding.get("paths") or [])]
         ac_ref = str(finding.get("ac_ref") or finding.get("ac") or "").strip()
         candidate_behaviour = bool(finding.get("candidate_behaviour", False))
-        if ac_ref.lower() in {OWN_BEHAVIOUR, "own behaviour", "own_behaviour"}:
+        if ac_ref.lower().replace("_", "-").replace(" ", "-") in OWN_BEHAVIOUR_SPELLINGS:
             candidate_behaviour = True
             ac_ref = ""
         bound_to_ac = bool(ac_ref) and ac_ref in accepted_refs

@@ -14,7 +14,7 @@ model_aliases: [claude-opus, claude-opus-4-8, opus-4-8]
 
 > **This is Layer 3 of the three-layer Agent System Prompt composition.**
 > Applied when an agent declares `model: opus` (or an alias).
-> Bead: clc-bq95 | Last updated: 2026-07-01
+> Last updated: 2026-07-01
 
 ---
 

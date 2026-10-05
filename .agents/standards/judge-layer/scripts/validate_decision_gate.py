@@ -25,6 +25,7 @@ DECISION_BRIEF_FIELDS = {
 }
 DECISION_GATE_FIELDS = {
     "Decision owner",
+    "Approval class",
     "Allowed outcomes",
     "Trigger timing",
     "Minimum evidence plan",
@@ -34,6 +35,9 @@ DECISION_GATE_FIELDS = {
     "Sequencing constraints",
 }
 JUDGE_OUTCOMES = {"ALLOW", "BLOCK", "REVISE", "ESCALATE"}
+# A human gate exists only for these two classes (AGENTS.md, Scope and
+# authorization, 2026-10-04). Internal work never takes a gate.
+APPROVAL_CLASSES = {"production-change", "customer-message"}
 MANDATE_FIELDS = {
     "scope",
     "limits",
@@ -112,6 +116,17 @@ def validate_allowed_outcomes(value: str | None, errors: list[str]) -> None:
         )
 
 
+def validate_approval_class(value: str | None, errors: list[str]) -> None:
+    """Accept a gate only for a production change or a customer message."""
+    if not is_non_empty_string(value):
+        return
+    if (value or "").strip().strip(".`").lower() not in APPROVAL_CLASSES:
+        errors.append(
+            "Human Decision Gate.Approval class: expected one of "
+            "production-change, customer-message; internal work takes no gate"
+        )
+
+
 def validate_mandate_field_disjointness(fields: dict[str, str], errors: list[str]) -> None:
     """Reject inline Mandate field redefinitions in a gate."""
     for field in sorted(MANDATE_FIELDS & set(fields)):
@@ -119,6 +134,21 @@ def validate_mandate_field_disjointness(fields: dict[str, str], errors: list[str
             f"Human Decision Gate: Mandate field {field!r} must not be redefined; "
             "reference mandate-schema.md instead"
         )
+
+
+GATE_HEADING_RE = re.compile(r"^##[ \t]+human decision gate\b", re.IGNORECASE)
+
+
+def count_gate_headings(markdown: str) -> int:
+    """Count gate headings of any case or qualifier outside fenced code blocks."""
+    count = 0
+    in_fence = False
+    for line in markdown.splitlines():
+        if line.lstrip().startswith(("```", "~~~")):
+            in_fence = not in_fence
+        elif not in_fence and GATE_HEADING_RE.match(line):
+            count += 1
+    return count
 
 
 def validate_decision_document(markdown: str) -> list[str]:
@@ -142,6 +172,11 @@ def validate_decision_document(markdown: str) -> list[str]:
         )
 
     if gate_section is not None:
+        if count_gate_headings(markdown) > 1:
+            errors.append(
+                "Human Decision Gate: expected one ## Human Decision Gate per work order; "
+                "one ALLOW covers every listed action, so do not stage approvals"
+            )
         gate_fields = parse_fields(gate_section)
         validate_required_fields(
             section_name="Human Decision Gate",
@@ -150,6 +185,7 @@ def validate_decision_document(markdown: str) -> list[str]:
             errors=errors,
         )
         validate_allowed_outcomes(gate_fields.get("allowed outcomes"), errors)
+        validate_approval_class(gate_fields.get("approval class"), errors)
         validate_mandate_field_disjointness(gate_fields, errors)
 
     return errors

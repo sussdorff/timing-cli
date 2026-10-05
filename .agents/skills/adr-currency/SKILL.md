@@ -21,7 +21,7 @@ lives in git. Pending work lives in hosted issues.
 
 - The repository `docs/adr/` corpus (plus package-local `docs/adr/` if present).
 - `docs/adr/AUTHORING.md` when the repo has one.
-- Current code, `CONTEXT.md`, and live hosted issues (`ccore tracker`).
+- Current code, `GLOSSARY.md`, and live hosted issues (`ccore tracker`).
 
 ## Outputs
 

@@ -15,7 +15,7 @@ model_aliases: [claude-haiku, claude-haiku-4-5, haiku-4-5, claude-haiku-4-5-2025
 
 > **This is Layer 3 of the three-layer Agent System Prompt composition.**
 > Applied when an agent declares `model: haiku` (or an alias).
-> Bead: clc-bq95 | Last updated: 2026-07-01
+> Last updated: 2026-07-01
 
 ---
 

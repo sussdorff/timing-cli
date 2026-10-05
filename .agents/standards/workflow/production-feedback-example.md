@@ -39,7 +39,7 @@ The original backup spec contemplated two states: success (restic exits 0) and f
 
 ## Step 2: Locate the Affected Spec
 
-The backup functionality was implemented in the pvs-adapter-x server restic backup bead. The original spec's `intent` only defined binary success/failure. The `contracts` section defined the restic call but not the exit code handling policy.
+The backup functionality was implemented in the pvs-adapter-x server restic backup work order. The original spec's `intent` only defined binary success/failure. The `contracts` section defined the restic call but not the exit code handling policy.
 
 ## Step 3: Spec Amendment
 

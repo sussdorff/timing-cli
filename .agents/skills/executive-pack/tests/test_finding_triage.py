@@ -93,6 +93,18 @@ def test_reviewer_brief_shape_is_accepted() -> None:
     ]
 
 
+@pytest.mark.parametrize(
+    "spelling", ["behaviour", "behavior", "own-behavior", "Own behaviour", "own_behavior"]
+)
+def test_own_behaviour_spelling_variants_are_not_dropped_as_unscoped(spelling: str) -> None:
+    """A reviewer writing `behaviour` instead of `own-behaviour` must not lose a real finding."""
+    result = finding_triage.triage_findings(
+        [_finding(ac_ref=spelling, severity="high")], diff_paths=DIFF, acceptance_refs=["AC-1"]
+    )
+    assert [f["finding_id"] for f in result["repair"]] == ["F1"]
+    assert result["deferred"] == []
+
+
 def test_directory_level_finding_matches_changed_files_under_it() -> None:
     result = finding_triage.triage_findings(
         [_finding(paths=["src/app/"])], diff_paths=DIFF, acceptance_refs=["AC-1"]

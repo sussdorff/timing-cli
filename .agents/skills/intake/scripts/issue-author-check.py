@@ -38,7 +38,12 @@ RemediationResolver = Callable[[str], "dict[str, Any] | None"]
 
 
 def _load_sibling_module(name: str, filename: str) -> ModuleType:
-    """Load a sibling script module without relying on sys.path order."""
+    """Load a sibling script module without relying on sys.path order.
+
+    The import must not write ``__pycache__`` beside the scripts: this checker
+    also runs from a managed installation, whose inventory is compared against
+    what was installed. The caller's bytecode setting is restored either way.
+    """
     cached = sys.modules.get(name)
     if cached is not None and Path(getattr(cached, "__file__", "")).resolve().parent == SCRIPT_DIR:
         return cached
@@ -47,7 +52,12 @@ def _load_sibling_module(name: str, filename: str) -> ModuleType:
         raise ImportError(f"cannot load {filename} from {SCRIPT_DIR}")
     module = importlib.util.module_from_spec(spec)
     sys.modules[name] = module
-    spec.loader.exec_module(module)
+    previous_bytecode_mode = sys.dont_write_bytecode
+    sys.dont_write_bytecode = True
+    try:
+        spec.loader.exec_module(module)
+    finally:
+        sys.dont_write_bytecode = previous_bytecode_mode
     return module
 
 
@@ -163,6 +173,7 @@ REVIEW_HISTORY_HEADING_RE = re.compile(
 
 HUMAN_GATE_REQUIRED_FIELDS = {
     "decision owner",
+    "approval class",
     "allowed outcomes",
     "trigger timing",
     "minimum evidence plan",
@@ -172,6 +183,9 @@ HUMAN_GATE_REQUIRED_FIELDS = {
     "sequencing constraints",
 }
 JUDGE_OUTCOMES = {"ALLOW", "BLOCK", "REVISE", "ESCALATE"}
+# A human gate exists only for a production change or a customer message
+# (AGENTS.md, Scope and authorization); internal work never takes one.
+HUMAN_GATE_APPROVAL_CLASSES = {"production-change", "customer-message"}
 MANDATE_GATE_FIELDS = {
     "scope",
     "limits",
@@ -1102,6 +1116,11 @@ def _decision_gate_findings(draft: dict[str, Any]) -> list[dict[str, str]]:
 
     if gate_section is not None:
         errors = _validate_human_decision_gate(gate_section)
+        if _count_gate_headings(body) > 1:
+            errors.append(
+                "expected one ## Human Decision Gate per work order; one ALLOW covers "
+                "every listed action, so do not stage approvals"
+            )
         if errors:
             findings.append(
                 _finding(
@@ -1178,6 +1197,18 @@ def _parse_field_labels(section: str) -> dict[str, str]:
     return fields
 
 
+# Any level-2 heading that names the gate, whatever its case or qualifier
+# ("Human Decision Gate 2", "(stage 2)", ": customer message").
+GATE_HEADING_RE = re.compile(r"^##[ \t]+human decision gate\b", re.IGNORECASE)
+
+
+def _count_gate_headings(markdown: str) -> int:
+    """Count rendered gate headings; fenced or commented examples do not count."""
+    return sum(
+        1 for _, line in _heading_candidate_lines(markdown) if GATE_HEADING_RE.match(line)
+    )
+
+
 def _validate_human_decision_gate(section: str) -> list[str]:
     fields = _parse_field_labels(section)
     errors: list[str] = []
@@ -1196,6 +1227,13 @@ def _validate_human_decision_gate(section: str) -> list[str]:
     invalid = [token for token in tokens if token not in JUDGE_OUTCOMES]
     if not tokens or invalid:
         errors.append("allowed outcomes must use ALLOW, BLOCK, REVISE, or ESCALATE")
+
+    approval_class = fields.get("approval class", "").strip().strip(".`").lower()
+    if fields.get("approval class", "").strip() and approval_class not in HUMAN_GATE_APPROVAL_CLASSES:
+        errors.append(
+            "approval class must be production-change or customer-message; "
+            "internal work takes no gate"
+        )
 
     mandate_fields = sorted(MANDATE_GATE_FIELDS & set(fields))
     if mandate_fields:

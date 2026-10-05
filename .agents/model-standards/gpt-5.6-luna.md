@@ -14,7 +14,7 @@ model_aliases: [luna]
 
 > **This is Layer 3 of the three-layer Agent System Prompt composition.**
 > Applied when an agent declares `model: gpt-5.6-luna`.
-> Bead: clc-ynqn | Last updated: 2026-08-01
+> Last updated: 2026-08-01
 
 ## Execution Discipline
 

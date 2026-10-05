@@ -36,4 +36,4 @@ All three must be true:
 
 Skip the BDR when any test is missing. Use an ADR instead when the commitment is about technical shape, integration, or lock-in.
 
-After writing the BDR, add one index line under `CONTEXT.md` Decisions.
+After writing the BDR, add one index line under `docs/decisions.md`; see [GLOSSARY-FORMAT.md](GLOSSARY-FORMAT.md) for its shape.

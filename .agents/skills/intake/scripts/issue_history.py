@@ -3,11 +3,12 @@
 
 Usage::
 
-    issue_history.py "<draft goal or description>" --repo <registry-prefix>
+    issue_history.py "<draft goal or description>" --repo <registry-key>
 
-The open issues come from ``ccore tracker list --repo <prefix>``; each is scored by
-token overlap between the search text and the issue title plus body. Memories come
-from ``ob --json search`` when the Open Brain CLI is installed. The result is JSON::
+The open issues come from ``ccore tracker list --repo <registry-key>``; each is
+scored by token overlap between the search text and the issue title plus body.
+Memories come from ``ob --json search`` when the Open Brain CLI is installed. The
+result is JSON::
 
     {"open_issues": [{"number", "title", "url", "score"}],
      "match_fields": ["title", "body"] | ["title"] | [],
@@ -17,6 +18,11 @@ from ``ob --json search`` when the Open Brain CLI is installed. The result is JS
 returns issue bodies on GitHub and Forgejo since ccore 2026.9.18; when any listed issue
 lacks a body (an older ccore), duplicates can only match on the title (``["title"]``).
 Issues are not hydrated one by one. An empty issue list compares nothing (``[]``).
+
+This search deliberately reads the full JSON listing, which is what
+``ccore tracker list`` returns by default on every host and in captured output
+(cognovis/ccore#75). It must not be switched to ``--detail compact``: a compact entry
+carries no body, so the duplicate search would silently degrade to title-only matching.
 
 A failing tracker call is a loud error (non-zero exit, message on stderr): intake
 must not treat "could not search" as "no duplicate".
@@ -158,7 +164,10 @@ def main(
     parser.add_argument(
         "--repo",
         required=True,
-        help="Registry prefix of the target repository (as accepted by ccore tracker)",
+        help=(
+            "Registry key (owner/repo) or alias of the target repository "
+            "(as accepted by ccore tracker)"
+        ),
     )
     args = parser.parse_args(argv)
     try:

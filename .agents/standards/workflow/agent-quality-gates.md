@@ -75,11 +75,14 @@ Validate agent structure including quality gates:
 
 ```bash
 # Warnings only (default)
-python3 meta/skills/agent-forge/scripts/validate-agent.py .claude/agents/my-agent/
+uv run python <agent-forge-root>/scripts/validate-agent.py .claude/agents/my-agent/
 
 # Strict mode (quality gate sections are errors)
-python3 meta/skills/agent-forge/scripts/validate-agent.py --strict .claude/agents/my-agent/
+uv run python <agent-forge-root>/scripts/validate-agent.py --strict .claude/agents/my-agent/
 ```
+
+`<agent-forge-root>` is the installed agent-forge root, resolved project-local
+first and then global.
 
 ## Reference Implementations
 

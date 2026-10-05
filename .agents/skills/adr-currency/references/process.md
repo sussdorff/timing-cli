@@ -18,7 +18,7 @@ valid `prohibits`. Follow `docs/adr/AUTHORING.md` when the repository has one.
 ## Grounding
 
 Spawn breadth workers on ADR clusters. Each worker cites file paths as evidence
-and uses the repository's `CONTEXT.md` / current architecture, not a remembered
+and uses the repository's `GLOSSARY.md` / current architecture, not a remembered
 product snapshot.
 
 ## Verification (when the repo has the scripts)

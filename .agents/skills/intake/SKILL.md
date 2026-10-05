@@ -55,6 +55,11 @@ Drafting happens **inline** in this session. Do not spawn an agent. Read
 classification_evidence, AC/MoC, Review-Risk and any genuine Human Decision Gate.
 Validate the drafted body with `$INTAKE_ROOT/scripts/issue-author-check.py --body-file`
 before `ccore tracker create --body-file` or `ccore tracker update --body-file`.
+`ccore tracker create` and `ccore tracker list` take `--repo` as the registry key
+`owner/repo` (for example `cognovis/library-core`) or a registry alias (for example
+`clc`), as shown by `ccore repo resolve <key|alias>`; a bare repository name, path or
+URL fails (`--repo library-core` returns `tracker_repo_unregistered`). There is no
+`--title`: the title is the body's `Goal:` line in `## Intent`.
 `ccore tracker` is the single interface: registry entries must declare `github` or
 `forgejo`. Unhosted entries fail closed. If the checker cannot be resolved, stop and
 report that limitation; an unvalidated body is never persisted.
@@ -62,6 +67,9 @@ report that limitation; an unvalidated body is never persisted.
 Revise validation failures before mutation. Every issue needs exactly one Review-Risk
 classification: none, payment, pii, auth or compliance. It is the work order's review
 risk; pr-agent applies it as the floor of the pull request's `review-risk:*` label.
+The class informs; it does not by itself hold a merge for a human. A class other than
+`none` needs a concrete damage scenario, and `pii` a crossing of the repository's PII
+boundary standard (the `executive-pack` standard, Review risk).
 Use the original source and actual identifiers; do not invent evidence names.
 
 ## Continue according to authority
