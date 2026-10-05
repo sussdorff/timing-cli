@@ -5,11 +5,12 @@ helper from the resolved installed skill root (`$INTAKE_ROOT`, see SKILL.md); ne
 search the filesystem for another copy:
 
 ```bash
-uv run python "$INTAKE_ROOT/scripts/issue_history.py" "$INTAKE_INPUT" --repo <prefix>
+uv run python "$INTAKE_ROOT/scripts/issue_history.py" "$INTAKE_INPUT" --repo <registry-key>
 ```
 
-`--repo` is the registry prefix of the target repository, as accepted by
-`ccore tracker list --repo`. The helper returns JSON with three lists:
+`--repo` is the registry key (`owner/repo`) or a registry alias of the target
+repository, as accepted by `ccore tracker list --repo`. The helper returns JSON with
+three lists:
 
 - `open_issues`: open hosted issues whose title or body shares terms with the input,
   highest overlap first (`number`, `title`, `url`, `score`)

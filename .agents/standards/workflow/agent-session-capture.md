@@ -11,7 +11,7 @@ Capture a concise record that a later session can find and trust:
 - **Result**: what changed, concluded, or was verified.
 - **Decisions**: material choices and the reason for each choice.
 - **Learnings**: reusable discoveries, including surprising constraints.
-- **References**: repository project, optional Bead reference, agent type, and the required
+- **References**: repository project, optional work order reference, agent type, and the required
   stable origin `agent-session:<harness>:<session-id>`.
 
 Use one `session_summary` for the complete record. Every `ob save` uses
@@ -23,7 +23,7 @@ transient command output, credentials, or unverified speculation.
 ## Boundaries
 
 - `session-capture` only extracts and persists knowledge. It does not integrate
-  Git, mutate Beads, stop Docker, or clean worktrees.
+  Git, mutate work orders, stop Docker, or clean worktrees.
 - A coding delivery ends in the `executive-pack` merge decision and
   `session-retro`; this standard does not create a second close workflow.
 

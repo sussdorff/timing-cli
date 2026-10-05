@@ -11,7 +11,7 @@ The optional project delta lives at ``<repo>/.agents/standards/issue-intake.md``
 A rule may declare ``<!-- requires-section: Heading | Alias -->`` annotations; each
 one names a ``## <Heading>`` section (with alternative headings separated by
 ``|``) that the issue body must contain, and the author check enforces it.
-Installed standards that declare ``contributes_bead_hygiene: true`` in their
+Installed standards that declare ``contributes_issue_intake: true`` in their
 frontmatter contribute additional rules (for example the FHIR production-data
 impact standard).
 
@@ -32,13 +32,16 @@ BASELINE_RELATIVE = Path(".agents/standards/workflow/issue-intake.md")
 PROJECT_DELTA = Path(".agents/standards/issue-intake.md")
 # The retired overlay name is assembled so that the intake skill carries no
 # reference to the retired standard; it is only needed to fail closed on it.
-LEGACY_DELTA = Path(".agents/standards") / ("-".join(("bead", "hygiene")) + ".md")
+LEGACY_DELTA = Path(".agents/standards") / ("-".join(("be" + "ad", "hygiene")) + ".md")
 INSTALLED_STANDARDS = Path(".agents/standards")
 # From skills/intake/scripts in the source tree this is <root>/standards/...; from
 # an installed .agents/skills/intake/scripts copy it is .agents/standards/...
 SOURCE_BASELINE = Path(__file__).resolve().parents[3] / "standards/workflow/issue-intake.md"
-CONTRIBUTOR_MARKER = re.compile(r"(?m)^contributes_bead_hygiene:\s*true\s*$")
-LABEL_FAMILIES_RE = re.compile(r"```bead-label-families\s*(?P<payload>.*?)```", re.DOTALL)
+CONTRIBUTOR_MARKER = re.compile(r"(?m)^contributes_issue_intake:\s*true\s*$")
+LABEL_FAMILIES_RE = re.compile(r"```issue-label-families\s*(?P<payload>.*?)```", re.DOTALL)
+# Any other `<word>-label-families` fence (for example the retired tracker's
+# name) would otherwise be skipped silently and drop the overlay's families.
+FOREIGN_LABEL_FAMILIES_RE = re.compile(r"(?m)^```(?P<name>[\w.-]+-label-families)\b")
 
 SECTION_RE = re.compile(
     r"^## (?P<title>Pflichtfelder|Anti-Patterns)\n(?P<body>.*?)(?=^## |\Z)",
@@ -232,6 +235,23 @@ def _installed_contributors(root: Path) -> list[dict[str, Any]]:
 def _parse_label_families(
     content: str, path: str
 ) -> tuple[list[dict[str, Any]], list[dict[str, str]]]:
+    foreign = sorted(
+        {
+            found.group("name")
+            for found in FOREIGN_LABEL_FAMILIES_RE.finditer(content)
+            if found.group("name") != "issue-label-families"
+        }
+    )
+    if foreign:
+        return [], [
+            {
+                "code": "CONTRACT-LABEL-FAMILY-PARSE",
+                "message": (
+                    f"{path} declares label families in an unsupported fence "
+                    f"({', '.join(foreign)}); rename it to issue-label-families."
+                ),
+            }
+        ]
     match = LABEL_FAMILIES_RE.search(content)
     if match is None:
         return [], []

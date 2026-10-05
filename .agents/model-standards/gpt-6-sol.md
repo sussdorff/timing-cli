@@ -3,7 +3,7 @@ name: gpt-6-sol
 version: "2026.09.23"
 description: >-
   Model-standard for GPT-6 Sol in Codex agents: frontier reasoning for
-  implementation, repair and opposite-family review.
+  implementation, repair and review.
 scope: global
 harnesses: [codex]
 model_id: gpt-6-sol

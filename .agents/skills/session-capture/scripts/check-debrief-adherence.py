@@ -224,7 +224,7 @@ def check_agents_dir(
         exclude_pattern: Path substring pattern; any agent file whose path
                          contains this string is silently skipped.
                          Defaults to ".claude/worktrees" to avoid false positives
-                         from open bead worktrees.
+                         from open agent worktrees.
 
     Returns:
         List of violation dicts, each with keys:

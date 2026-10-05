@@ -1,6 +1,6 @@
 # Plain Technical English
 
-> **Scope**: Prose written for people — reports, summaries, explanations, bead
+> **Scope**: Prose written for people — reports, summaries, explanations, work order
 > bodies, commit messages, PR descriptions, review findings, and documentation.
 > Derived from ASD-STE100 Simplified Technical English, a controlled English
 > written for aircraft maintenance manuals so that non-native readers understand

@@ -2,6 +2,9 @@
 
 Run multiple isolated browser sessions concurrently with state persistence.
 
+Sessions are shared host state. Act on the ones this task opened, by name, and do
+not copy a profile or storage state between sessions or users to obtain access.
+
 ## Named Browser Sessions
 
 Use `-s` flag to isolate browser contexts:
@@ -38,10 +41,12 @@ playwright-cli list
 playwright-cli close                # stop the default browser
 playwright-cli -s=mysession close   # stop a named browser
 
-# Stop all browser sessions
+# Stop every browser session on this host, including sessions other tasks and
+# other people own. Only with an explicitly authorized scope.
 playwright-cli close-all
 
-# Forcefully kill all daemon processes (for stale/zombie processes)
+# Forcefully kill all daemon processes. Same scope requirement; this also kills
+# daemons this task never started.
 playwright-cli kill-all
 
 # Delete browser session user data (profile directory)
@@ -77,8 +82,10 @@ playwright-cli -s=site1 snapshot
 playwright-cli -s=site2 snapshot
 playwright-cli -s=site3 snapshot
 
-# Cleanup
-playwright-cli close-all
+# Cleanup: close what this script opened, by name
+playwright-cli -s=site1 close
+playwright-cli -s=site2 close
+playwright-cli -s=site3 close
 ```
 
 ### A/B Testing Sessions
@@ -203,19 +210,22 @@ playwright-cli -s=docs-scrape open https://docs.example.com
 playwright-cli -s=s1 open https://github.com
 ```
 
-### 2. Always Clean Up
+### 2. Clean Up What This Task Opened
+
+Close browser sessions by name. `playwright-cli list` shows sessions this host is
+running, including ones belonging to other tasks and other people — leave those
+alone.
 
 ```bash
 # Stop browsers when done
 playwright-cli -s=auth close
 playwright-cli -s=scrape close
-
-# Or stop all at once
-playwright-cli close-all
-
-# If browsers become unresponsive or zombie processes remain
-playwright-cli kill-all
 ```
+
+`close-all` and `kill-all` act on every session on the host. They are not routine
+cleanup and not a response to a connection error: recover on the same route and
+hand off instead, see [route selection and recovery](route-selection.md). Use
+them only when a human has authorized that scope.
 
 ### 3. Delete Stale Browser Data
 

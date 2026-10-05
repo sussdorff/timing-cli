@@ -1,6 +1,6 @@
 # TDD Real-Fixture Rule
 
-When a bead **parses production output** — HTML/CSV/JSON from external tools,
+When a work order **parses production output** — HTML/CSV/JSON from external tools,
 validator reports, ETL source data, API responses, generated build artifacts —
 a TDD suite built on self-written fixtures is **not enough**.
 
@@ -10,7 +10,7 @@ tests green against it — and the real format is different.
 
 ## Concrete Example (fpde-838, 2026-05-12)
 
-Bead: CI release gate for the IG Publisher's qa.html.
+Work order: CI release gate for the IG Publisher's qa.html.
 
 | Assumption in fixture | Real format | Consequence |
 |-----------------------|-------------|-------------|
@@ -18,11 +18,11 @@ Bead: CI release gate for the IG Publisher's qa.html.
 | Row has 3 cells (file, message, ctx) | Row has 4 cells with a severity column | Counter cells with `<b>N</b>` counted as errors |
 | Allowlist pattern "IG URL should refer" | Real message "The URL should refer" | Allowlist did not match, error treated as internal |
 
-Result: tests 15/15 green, the v0.60.0 release blocked itself, and a hotfix bead was needed.
+Result: tests 15/15 green, the v0.60.0 release blocked itself, and a hotfix work order was needed.
 
-## Mandatory for Parser/Gate/Adapter/ETL Beads
+## Mandatory for Parser/Gate/Adapter/ETL Work Orders
 
-Beads that parse external production output MUST:
+Work orders that parse external production output MUST:
 
 1. **Sample a real fixture** when implementation starts:
    ```bash
@@ -33,14 +33,19 @@ Beads that parse external production output MUST:
    cp <project>/output/<artifact> tests/fixtures/real_<artifact>_<YYYY-MM-DD>.<ext>
    ```
 
-2. **At least one test** named `test_against_real_fixture()`:
-   - Asserts against the *known values* of the sampled fixture (for example
+2. **At least one test asserting the fixture's known values**:
+   - Pins the *source-of-truth values* recorded at sample time (for example
      "v0.59.0 qa.html: 7 errors, all external, internal_count=0")
    - Fails immediately when the parser makes wrong assumptions
 
-3. **Fixture source documented** in the test docstring:
+   The name of that test and the filename of the fixture are conventions, not
+   evidence. What makes it evidence is that the input came from production and the
+   expected values came from the sample, not from the parser.
+
+3. **Fixture provenance documented** with the test — where the sample came from,
+   when it was taken, and the values that were true at sample time:
    ```python
-   def test_against_real_fixture():
+   def test_release_gate_counts_only_internal_errors():
        """Tests against real qa.html sampled from
        https://cognovis.github.io/fhir-praxis-de/qa.html on 2026-05-12.
        Source-of-truth at sample time: errors=7, internal=0 (all 7 allowlisted)."""
@@ -49,14 +54,15 @@ Beads that parse external production output MUST:
 4. **Acceptance criterion** added explicitly:
    ```
    - Tests include at least one integration test against a real production
-     fixture sampled at implementation time (file documented in test docstring).
+     fixture sampled at implementation time, with the fixture's origin, sample
+     date and sample-time values documented alongside the test.
    ```
 
 ## Detection Triggers
 
-These bead contents point to a parser, gate, or adapter:
+These work order contents point to a parser, gate, or adapter:
 - ACs mention: parse, gate, qa.html, output/, .yml workflow, ETL, scrape, validator, adapter
-- Bead description mentions: HTML report, JSON API response, CSV import, build artifact
+- Work order description mentions: HTML report, JSON API response, CSV import, build artifact
 - Tool output is consumed: IG Publisher, SUSHI, npm registry, GitHub API
 
 When in doubt, use a real fixture rather than skipping it.
@@ -65,8 +71,8 @@ When in doubt, use a real fixture rather than skipping it.
 
 A real fixture is not needed when:
 - Pure refactor without a new parser
-- Documentation-only bead
-- The bead works exclusively against self-generated output structure (FSH to JSON
+- Documentation-only work order
+- The work order works exclusively against self-generated output structure (FSH to JSON
   via SUSHI is a grey area — SUSHI is external, but the output format is
   FHIR-specified and therefore stable)
 - The implementation uses an established library with a well-documented format
@@ -87,12 +93,19 @@ Format drift is guaranteed. The tests get trained on wrong assumptions.
 
 **Skipping with "CI will catch it":** "Tests are green, CI is the real test."
 
-Wrong — CI is production. When the bead is reported done and CI then crashes,
-a hotfix bead follows. Sampling a fixture is cheaper than a hotfix bead.
+Wrong — CI is production. When the work order is reported done and CI then crashes,
+a hotfix work order follows. Sampling a fixture is cheaper than a hotfix work order.
 
-## Validation at Bead Close
+## Validation at Close
 
 The verification agent should check:
-- Does at least one test function have "real" or "production" in its name?
-- Does it reference a fixture from `tests/fixtures/real_*`?
-- If the bead trigger matches but there is no real-fixture test, the verdict is DISPUTED.
+- Does a test exercise a fixture that actually came from production, rather than one
+  the implementer wrote?
+- Is the fixture's origin, sample date and sample-time source-of-truth recorded with
+  the test, so a later reader can resample it?
+- Do the expected values come from that sample rather than from the parser's own
+  behaviour?
+- If the trigger matches but no test exercises a real sampled fixture, the verdict is
+  DISPUTED. A test whose name merely contains "real" or "production" does not satisfy
+  this rule, and a provenance-documented test does not fail it for being named
+  something else.

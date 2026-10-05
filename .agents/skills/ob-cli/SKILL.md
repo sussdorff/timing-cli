@@ -30,16 +30,65 @@ Verify: `ob doctor`
 | `ob search <query>` | Hybrid search (vector + FTS) across memories | `ob search "ADR database migration" --limit=5` |
 | `ob concept <query>` | Semantic-only (vector) search | `ob concept "authentication patterns"` |
 | `ob save <text>` | Save a new observation/memory | `ob save "Decided to use JWT" --type=decision --project=mira` |
-| `ob get <id>` | Fetch full observation by ID | `ob get mem_abc123` |
+| `ob get <id> [<id> ...]` | Fetch full observations by ID | `ob get 27733` |
 | `ob context` | Recent session context for current project | `ob context --project=library --limit=10` |
 | `ob timeline` | Timeline view of memories | `ob timeline --project=mira` |
 | `ob stats` | Database statistics | `ob stats` |
 | `ob doctor` | Run server diagnostics | `ob doctor` |
-| `ob update <id>` | Update an existing memory | `ob update mem_abc123 --title="New title"` |
+| `ob update <id>` | Update an existing memory | `ob update 27733 --title="New title"` |
 | `ob ingest` | Ingest from external sources | `ob ingest --help` |
 | `ob people <sub>` | Manage people memories | `ob people list` |
 
-All subcommands support `--json` for machine-readable output.
+## `--json` Is a Global Option
+
+`--json` belongs before the subcommand: `ob --json search "query"`. Placed after
+the subcommand it is an unrecognized argument and `ob` exits 2.
+
+```bash
+ob --json search "library sync" --limit=5    # machine-readable
+ob --json get 27733                          # full record for one ID
+```
+
+## Bounded Recall
+
+`ob --json search` returns whole records, so an unfiltered search floods the
+context with long memories and inline image payloads. Bounded excerpts shipped in
+a later open-brain release, so a hit carries either a server-side `excerpt` or
+only the full `content` depending on the version answering this host. Project
+`.excerpt // .content` and the same command stays bounded on both. Sanitize
+before you cap, so an image or data URI cannot survive as a truncated blob:
+
+```bash
+# bounded-projection: ob-search
+ob --json search "library sync" --limit=5 | jq -c '[.results[]
+  | {id, title, excerpt: ((.excerpt // .content // "")
+      | gsub("!\\[\\[[^]]*\\]\\]"; "[image]")
+      | gsub("data:[^\\s\")]+"; "[inline-data]")
+      | .[0:300])}]'
+```
+
+Read the excerpts, decide which IDs matter, then fetch only those in full with
+`ob --json get <id>`. Never loop a full `get` over an arbitrary result set. There
+is no excerpt flag to pass; `ob get --inspect` fetches without logging the
+retrieval or changing recall priority. `ob --version` reports the CLI and
+`ob --json doctor` reports the store's `server_version` — they are different
+things, so record whichever one your claim is about, or just note whether the
+response carried `excerpt`.
+
+## Continuing Earlier Work
+
+Before recommending an access change, a deployment or the next step of work
+someone already started, recover what that work established: search for the prior
+session summary, read bounded excerpts, fetch in full only the few records that
+matter, and separate decisions and completed actions from what is still open.
+
+A memory records what was true when it was written. Re-check the live state
+before acting on it, and treat a recorded authorization *request* as a request —
+never as a granted permission. Keep the recovered scope bound to the exact target
+it names.
+
+Read [continuation](references/continuation.md) for the procedure and a worked
+example.
 
 ## Common Patterns
 

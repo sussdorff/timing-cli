@@ -14,7 +14,7 @@ model_aliases: [claude-sonnet, claude-sonnet-5, claude-sonnet-4-6, sonnet-4-6]
 
 > **This is Layer 3 of the three-layer Agent System Prompt composition.**
 > Applied when an agent declares `model: sonnet` (or an alias).
-> Bead: clc-bq95 | Last updated: 2026-07-01
+> Last updated: 2026-07-01
 
 ---
 

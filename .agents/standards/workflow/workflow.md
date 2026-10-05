@@ -26,11 +26,11 @@ standards those skills apply.
 
 | File | Topic |
 |------|-------|
-| [code-review.md](code-review.md) | Universal quality patterns a review looks for |
+| [code-review.md](code-review.md) | Where the review method lives, plus the local finding, scope and adjudication rules |
 | [verification-discipline.md](verification-discipline.md) | Evidence over assertion; discharging Means of Compliance |
 | [agent-quality-gates.md](agent-quality-gates.md) | The gates an agent must clear before reporting success |
-| [test-quality.md](test-quality.md) | Universal testing principles |
-| [tdd-discipline.md](tdd-discipline.md) | RED-GREEN-REFACTOR |
+| [test-quality.md](test-quality.md) | Where the testing method lives, plus the local environment and skipped-test rules |
+| [tdd-discipline.md](tdd-discipline.md) | Verified red as evidence; what needs no test |
 
 ## Engineering Practice
 

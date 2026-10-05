@@ -4,10 +4,14 @@ Four numbers look interchangeable. They are not.
 
 | Number | Where it appears | Use it for |
 |---|---|---|
-| UI run index `#N` | Actions tab, `fgj actions run view` line `Run: #N`, tasks payload `run_number` | Talking to humans and the web UI |
+| UI run index `#N` | Actions tab, `fgj actions run view` line `Run: #N`, tasks payload `run_number`, commit-status `target_url` `/actions/runs/N/jobs/J` | Talking to humans and the web UI |
 | API run id | `fgj actions run list` column `ID`, `GET /repos/{owner}/{repo}/actions/runs/{id}` | `run view`, `run watch`, `/actions/runs/{id}` |
 | Task id | Verbose `Job: name (ID: T)`, `/actions/runs/{id}/jobs` field `task_id`, `/actions/tasks` `workflow_runs[].id` | Runner task records only |
 | Job id | `/actions/runs/{id}/jobs` field `id` | `/actions/jobs/{id}/logs` |
+
+A pull request's commit status links `/actions/runs/<N>/jobs/<J>`: `N` is the UI run index and
+`J` the job's position in the run. Neither is an API id. Resolve the API run id with
+`fgj actions run list` before reading jobs or logs.
 
 Worked example (library-cli Release UI `#12`):
 

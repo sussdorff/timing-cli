@@ -26,9 +26,12 @@ entry declares `github` or `forgejo`. Do not spawn an agent. For each candidate:
      applies as the floor of the pull request's `review-risk:*` label;
      `issue-author-check.py` rejects a missing,
      unknown, or repeated declaration, and one whose `review-risk:` label from ccore would
-     differ from the declared value. Classify from the source: payment processing,
-     personal data, authentication or access control, and regulatory obligations are
-     never `none`.
+     differ from the declared value. Classify from the source: work that moves a
+     payment, personal-data, authentication/access-control or regulatory boundary with
+     a concrete damage scenario is never `none`; touching such an area without moving a
+     boundary is `none`. `pii` needs a crossing that the repository's PII boundary
+     standard defines. The `executive-pack` standard's Review risk section holds these
+     rules.
    - one column-0 `Blocked by: <full issue URL>` line per live dependency; a bare
      number or `owner/repo#N` is not a valid dependency record. The lines are the body's
      dependency record; on Forgejo, `ccore tracker create` (2026.9.18 or later) also wires
@@ -40,9 +43,11 @@ entry declares `github` or `forgejo`. Do not spawn an agent. For each candidate:
      An overlay rule annotated `<!-- requires-section: Heading | Alias -->` is enforced
      by `issue-author-check.py`: the body needs a non-empty `## Heading` (or alias)
      section for every issue type the rule's `types:` filter covers.
-   - a `## Human Decision Gate` section when the approved candidate requires a human
-     decision before proceeding. Follow `standards/judge-layer/decision-gate.md`:
-     include decision owner, allowed outcomes from `ALLOW` / `BLOCK` / `REVISE` /
+   - one `## Human Decision Gate` section only when the work changes a production
+     system or sends a customer a message with content (shared `AGENTS.md`, Scope and
+     authorization); internal work, including CI secrets and internal hosts, takes no
+     gate. Follow `standards/judge-layer/decision-gate.md`: include decision owner,
+     approval class (`production-change` or `customer-message`), allowed outcomes from `ALLOW` / `BLOCK` / `REVISE` /
      `ESCALATE`, trigger timing, minimum evidence plan, operational do-nothing/default
      outcome, delivery consequence, overrideability, and sequencing constraints.
      Keep this gate out of ordinary Acceptance Criteria.
@@ -58,10 +63,12 @@ entry declares `github` or `forgejo`. Do not spawn an agent. For each candidate:
    Exit 0 (`FACTORY_READY` or `FACTORY_READY_WITH_WARNINGS`) permits persistence; exit 2
    blocks it.
 3. If validation fails, revise the body and re-run the check.
-4. **Create** with `ccore tracker create --repo <prefix> --body-file <file>` and record
-   the returned issue reference. A substantive change to an existing issue runs the same
-   check, then `ccore tracker update --ref <owner/repo#N> --body-file <file>`; an existing
-   issue can be re-checked with `issue-author-check.py --issue <owner/repo#N>`.
+4. **Create** with `ccore tracker create --repo <registry-key> --body-file <file>` and
+   record the returned issue reference. `<registry-key>` is `owner/repo` or a registry
+   alias (see SKILL.md); the title is the body's `Goal:` line, with no `--title`. A
+   substantive change to an existing issue runs the same check, then
+   `ccore tracker update --ref <owner/repo#N> --body-file <file>`; an existing issue can
+   be re-checked with `issue-author-check.py --issue <owner/repo#N>`.
 5. **Stop after persistence and deterministic validation.** Do not dispatch
    a spec reviewer, Council, or an author/reviewer loop. If the
    user explicitly requested a review, run that separate manual action after creation.

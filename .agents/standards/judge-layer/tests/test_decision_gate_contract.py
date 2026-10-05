@@ -104,7 +104,7 @@ def test_decision_gate_field_set_is_disjoint_from_mandate_required_fields() -> N
     assert "mandate-schema.md" in gate_text
 
 
-def test_no_typed_decision_gate_bead_schema_field_is_introduced() -> None:
+def test_no_mcp_server_tree_is_introduced() -> None:
     assert not (ROOT / "mcp-servers").exists()
 
     # library-core#74 admission: the author check moved from scripts/ into the

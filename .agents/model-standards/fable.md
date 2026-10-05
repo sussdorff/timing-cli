@@ -15,7 +15,7 @@ model_aliases: [claude-fable, claude-fable-5, fable-5]
 
 > **This is Layer 3 of the three-layer Agent System Prompt composition.**
 > Applied when an agent declares `model: fable` (or an alias).
-> Bead: clc-ynqn | Last updated: 2026-08-01
+> Last updated: 2026-08-01
 
 ---
 

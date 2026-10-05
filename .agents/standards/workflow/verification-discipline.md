@@ -67,8 +67,8 @@ These phrases before verification are warning signs:
 
 ### Gate Verification Protocol
 
-Every Means of Compliance row a bead declares must be discharged by this protocol
-before the bead is reported complete:
+Every Means of Compliance row a work order declares must be discharged by this protocol
+before the work order is reported complete:
 
 ```
 1. RUN: Execute the verification command
@@ -150,8 +150,8 @@ Rule: If you changed ANY file after the last test run, re-run tests before claim
 
 Adversarial review of a finished implementation is not a re-reading of the diff. It is a run.
 
-1. **Replay the bead's "Why" section as a test plan.** Each numbered defect in the Why becomes a probe; run the actual CLI/code path that should have been fixed and capture the output.
-2. **Run with default arguments.** If the bead claims two commands agree, run both with no args. Scope-aligned fixtures hide default-value bugs.
+1. **Replay the work order's "Why" section as a test plan.** Each numbered defect in the Why becomes a probe; run the actual CLI/code path that should have been fixed and capture the output.
+2. **Run with default arguments.** If the work order claims two commands agree, run both with no args. Scope-aligned fixtures hide default-value bugs.
 3. **Run against real-machine state.** Diff reading misses footguns that only appear on a populated lockfile, full catalog, or production-scale dataset. The 173-vs-45 catalog-diff misclassification in CL-uyp was invisible from the diff and obvious from a single CLI run against the actual lockfile.
-4. **Run from unexpected working directories.** `/tmp`, `$HOME`, sibling project — the bead may have promised "run-anywhere" but only fixed the new verb.
+4. **Run from unexpected working directories.** `/tmp`, `$HOME`, sibling project — the work order may have promised "run-anywhere" but only fixed the new verb.
 5. **Cite the command and its output for every finding.** No "I think this is broken" — every adversarial finding ships with `command -> output`.

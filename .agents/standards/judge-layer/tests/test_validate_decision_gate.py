@@ -32,6 +32,7 @@ Alternatives considered: Wait for the next window.
 ## Human Decision Gate
 
 Decision owner: Release manager.
+Approval class: production-change.
 Allowed outcomes: ALLOW, BLOCK, REVISE, ESCALATE.
 Trigger timing: Before deployment.
 Minimum evidence plan: Run rollback smoke test and deployment dry run.
@@ -103,3 +104,64 @@ def test_mandate_field_names_are_rejected_as_gate_fields() -> None:
     assert result.returncode == 1
     data = json.loads(result.stdout)
     assert any("Mandate" in error and "scope" in error for error in data["errors"])
+
+
+def test_gate_without_approval_class_fails() -> None:
+    payload = valid_document().replace("Approval class: production-change.\n", "")
+
+    result = run_validator(payload)
+
+    assert result.returncode == 1
+    errors = json.loads(result.stdout)["errors"]
+    assert any("Approval class" in error for error in errors)
+
+
+def test_gate_for_internal_work_fails() -> None:
+    payload = valid_document().replace(
+        "Approval class: production-change.", "Approval class: secret-creation."
+    )
+
+    result = run_validator(payload)
+
+    assert result.returncode == 1
+    errors = json.loads(result.stdout)["errors"]
+    assert any("production-change, customer-message" in error for error in errors)
+
+
+def test_customer_message_gate_passes() -> None:
+    payload = valid_document().replace(
+        "Approval class: production-change.", "Approval class: customer-message."
+    )
+
+    result = run_validator(payload)
+
+    assert result.returncode == 0, result.stdout
+
+
+def test_punctuation_only_approval_class_fails() -> None:
+    for value in (".", "`", "...", " . "):
+        payload = valid_document().replace(
+            "Approval class: production-change.", f"Approval class: {value}"
+        )
+        result = run_validator(payload)
+        assert result.returncode == 1, value
+
+
+def test_second_gate_fails() -> None:
+    second = valid_document().split("## Human Decision Gate", 1)[1].replace(
+        "Approval class: production-change.", "Approval class: customer-message."
+    )
+    payload = valid_document() + "\n## Human Decision Gate" + second
+
+    result = run_validator(payload)
+
+    assert result.returncode == 1
+    errors = json.loads(result.stdout)["errors"]
+    assert any("one ## Human Decision Gate" in error for error in errors)
+
+
+def test_second_gate_with_variant_heading_fails() -> None:
+    body = valid_document().split("## Human Decision Gate", 1)[1]
+    for heading in ["## Human Decision Gate 2", "## Human Decision Gate (stage 2)", "## Human Decision Gate: customer message", "## human decision gate"]:
+        result = run_validator(valid_document() + "\n" + heading + body)
+        assert result.returncode == 1, heading

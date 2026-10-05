@@ -14,3 +14,5 @@
 | `event` empty on `run view` | Dedicated run view drops event | `/actions/tasks` or run JSON `event` when present |
 | `keys file not found` from `fj` | fj's own token store, not `forgejo.env` | Stay on `fgj`; do not mix stores |
 | Interactive `fgj auth login` in a non-TTY agent | Login wants a prompt | `FGJ_TOKEN` + `FGJ_HOST=git.cognovis.de` from `forgejo.env` |
+| `no configuration found for host codeberg.org` | Outside a primary git.cognovis.de checkout (for example in a linked or T3 worktree) fgj fell back to `codeberg.org`; no default host is set and `FGJ_TOKEN` is unset | `--hostname git.cognovis.de`; restore the top-level `hostname: git.cognovis.de` key in `$HOME/.config/fgj/config.yaml` (dropped by `fgj auth login` when it rewrites that file) or set `FGJ_HOSTNAME` |
+| Codeberg error or version (for example `token is malformed`, `access token does not exist`) instead of git.cognovis.de | `FGJ_TOKEN` is exported without a host, so fgj sent the git.cognovis.de token to `codeberg.org` | Stop; set `FGJ_HOSTNAME=git.cognovis.de` or `FGJ_HOST=git.cognovis.de` with every `FGJ_TOKEN` export and report the token as exposed to codeberg.org |

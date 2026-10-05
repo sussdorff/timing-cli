@@ -33,8 +33,6 @@ def test_skill_declares_routing_persistence_and_bootstrap_contracts() -> None:
     assert "append a clearly separated new `Context Handoff` section and preserve prior sections" in skill
     assert "Read <data.path> as context from the previous chat" in skill
     assert "Read the latest Context Handoff comment on <owner/repo#N> (<html_url>)" in skill
-    assert "bd " not in skill
-    assert "Bead" not in skill
     assert "Call `/clear`, `/compact`" in skill
     assert "proceed only after `ALLOW`" in skill
     assert "worktree-local" in skill

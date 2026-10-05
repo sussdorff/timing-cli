@@ -123,6 +123,6 @@ If you're unsure whether a git operation is safe:
 
 ## Integration with Workflow
 
-- **Bead authoring**: No git operations
+- **Work order authoring**: No git operations
 - **Implementation**: Creates atomic commits following conventional format
 - **Publication** (`executive-pack`): pushes, tags per the artifact's version scheme (`sdk-versioning`), creates the PR with `ccore pr ensure`

@@ -50,7 +50,7 @@ consumers share the same Mandate contract.
 
 | Field | Meaning |
 |-------|---------|
-| `session_binding` | MCP transport, server-session identity digest, workspace-root digest, run ID, bead ID, phase, and allowed tool scope. |
+| `session_binding` | MCP transport, server-session identity digest, workspace-root digest, run ID, work order ID, phase, and allowed tool scope. |
 | `replay` | Replay-prevention metadata such as `jti`, nonce digest, `single_use`, and consumed-at timestamp. |
 | `policy_ref` | Policy version and digest that were active when the mandate was issued. |
 | `audience` | Expected MCP server, daemon, or launcher identity. |
@@ -59,7 +59,7 @@ consumers share the same Mandate contract.
 | `redaction` | Fields that must be digested or omitted in audit output. |
 
 Transport authorization grants must be checked for issuer trust, scope,
-workspace/run/bead/phase binding, expiry, revocation, replay, and policy digest
+workspace/run/work order/phase binding, expiry, revocation, replay, and policy digest
 before dispatching the tool handler.
 
 ## Validity Rules
@@ -71,7 +71,7 @@ before dispatching the tool handler.
 | Mandate is expired, revoked, superseded, or disputed | `ESCALATE` or `BLOCK` based on policy. |
 | Runtime revocation lookup finds the mandate ID | `BLOCK`. |
 | `replay.single_use` mandate has already consumed its `jti` or nonce | `BLOCK`. |
-| `session_binding` does not match the current session, workspace, run, bead, or phase | `BLOCK`. |
+| `session_binding` does not match the current session, workspace, run, work order, or phase | `BLOCK`. |
 | Mandate evidence is generated-only | Treat as insufficient for side effects. |
 | `expires_at` is null for `high-risk` action | `ESCALATE` unless another policy sets a shorter operational window. |
 | MCP transport grant issuer is not trusted | `BLOCK` before handler dispatch. |

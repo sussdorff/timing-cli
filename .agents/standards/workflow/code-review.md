@@ -1,134 +1,51 @@
-# Code Review: Universal Quality Patterns
+# Code Review
 
-Framework-agnostic code review checklist for discharging a code-review Means of Compliance.
+What to look for in a diff is owned by the installed `code-review` skill, not by this
+standard. This file holds only what is local to reviews in these repositories.
 
-## Trigger Context
+## The method lives in the `code-review` skill
 
-Apply when reviewing code changes during implementation or as part of DoD verification.
+Read it from the first root that exists, project-local before global:
 
-## Review Categories
-
-### 1. Wrapper Functions (External Call Isolation)
-
-Every call to an external system should be wrapped in a dedicated function.
-
-```
-GOOD: result = self.http_client.get(url)          # Injected dependency
-GOOD: result = fetch_user_data(user_id)            # Wrapper function
-BAD:  result = requests.get(f"{BASE_URL}/users")   # Direct library call in business logic
+```text
+<repo>/.agents/skills/code-review   <repo>/.claude/skills/code-review
+~/.agents/skills/code-review        ~/.claude/skills/code-review
 ```
 
-**Why**: Testability (mock the wrapper, not the library), centralized error handling, single point of change.
+It owns the two review axes — Standards (does the change follow what this repository
+documents?) and Spec (does it implement what the work order asked for?) — and the smell
+baseline that applies when a repository documents nothing. Read `codebase-design` from
+the same root set when a finding turns on module depth, an interface or where a seam
+belongs. If no root has `code-review`, that is a setup failure to report, not permission
+to invent a checklist.
 
-**Check**: Are there direct calls to external libraries (HTTP, DB, filesystem, shell) embedded in business logic?
+A reviewer inside a delivery applies that method itself and does not start the skill's
+own sub-agents; `executive-pack` says so and owns the brief.
 
-### 2. Code Reuse
+## Findings are hypotheses
 
-Could existing functions be extended instead of duplicating logic?
+Every finding, at every severity, is checked against the live code before it drives a
+change. A finding that does not reproduce is withdrawn, not downgraded. See
+[review-governance/finding-adjudication.md](../review-governance/finding-adjudication.md).
 
-**Check sequence**:
-1. Does similar functionality already exist in the codebase?
-2. Can the existing function be parameterized to handle the new case?
-3. If not, is the new code truly distinct enough to warrant a separate function?
+## The delivery owns the finding shape
 
-**Red flags**:
-- Two functions with >70% similar code
-- Copy-paste with minor modifications
-- Utility functions recreated in a new module
+Do not invent a severity scale or a report table here. Inside a delivery, the finding
+fields, the severities and the triage into repair, defer or drop come from the
+`executive-pack` skill and its `finding_triage.py`; a review that feeds the structured
+review-output contract uses the categories in
+[standards/types/review_output.py](../types/review_output.py).
 
-### 3. Return Values
+## Scope of a review finding
 
-All result fields must be set before success/failure checks.
+A review reports on the change under review. Something wrong nearby but outside it is
+reported, not fixed in passing, and
+[orchestrator/scope-creep-policy.md](../orchestrator/scope-creep-policy.md) decides
+whether it becomes part of the repair or its own work order.
 
-```
-GOOD:
-  result.data = processed_data
-  result.count = len(processed_data)
-  result.success = True
-  return result
+## What a review does not cover
 
-BAD:
-  if success:
-    result.success = True
-    return result           # result.data never set!
-```
-
-**Check**: Does every code path set all expected fields before returning?
-
-### 4. YAGNI (You Aren't Gonna Need It)
-
-No unused parameters, return fields, configuration options, or abstractions.
-
-| Anti-Pattern | Example | Fix |
-|-------------|---------|-----|
-| Unused parameter | `def process(data, verbose=False)` where verbose is never checked | Remove parameter |
-| Premature abstraction | Factory pattern for a single implementation | Use the implementation directly |
-| Feature flags for unrequested features | `if config.enable_new_algo` for algo nobody asked for | Don't build it |
-| Over-generalized interface | Interface with 10 methods, only 3 implemented | Narrow the interface |
-
-### 5. Minimal Diff
-
-Changes should be surgical and focused on the task.
-
-**Check**:
-- Are all changes related to the ticket/task?
-- No formatting-only changes to untouched code
-- No import reorganization of unrelated files
-- No renamed variables that aren't part of the task
-
-**Exception**: If a rename or format change is needed for the task, it's fine. The rule prevents drive-by refactoring.
-
-### 6. Error Handling
-
-Errors should be handled at the appropriate level, not swallowed or over-caught.
-
-| Anti-Pattern | Fix |
-|-------------|-----|
-| `except Exception: pass` | Catch specific exceptions, log or re-raise |
-| Error message without context | Include what failed, with what input, and why |
-| Returning `None` on error | Raise exception or return Result type |
-| Try/catch around entire function | Narrow the scope to the specific risky call |
-
-### 7. Naming and Clarity
-
-Code should be self-explanatory without excessive comments.
-
-**Check**:
-- Do function names describe what they do? (`get_active_users` not `process_data`)
-- Do variable names convey meaning? (`retry_count` not `n`)
-- Are boolean names questions? (`is_valid`, `has_access`, `should_retry`)
-- Are abbreviations avoided unless universally understood? (`req`/`res` OK, `usr_grp_mgr` not)
-
-## Review Output Format
-
-The review produces:
-
-```markdown
-### Code Review Results
-
-**Files reviewed**: [list]
-**Issues found**: [count]
-
-| File | Line | Category | Severity | Issue | Suggestion |
-|------|------|----------|----------|-------|------------|
-| ... | ... | Wrapper | MEDIUM | Direct HTTP call in business logic | Extract to service method |
-
-**Verdict**: PASS / NEEDS_FIX (with specific fixes)
-```
-
-## Severity Levels
-
-| Severity | Action | Examples |
-|----------|--------|----------|
-| HIGH | Must fix before commit | Security issue, data loss risk, broken functionality |
-| MEDIUM | Should fix, auto-fixable | Missing wrapper, code duplication, unclear naming |
-| LOW | Nice to have, skip if tight | Style preference, minor naming improvement |
-
-## Relationship to Other Standards
-
-- **Security Review** (Gate 2): Handles injection, secrets, unsafe deserialization separately
-- **Test Coverage** (Gate 3): Handled by the implementation executor, not code review
-- **Documentation** (Gate 4): Handled conditionally by `doc-changelog-updater`
-- **Linting**: Automated formatting/style checks run before code review
-
-Code review focuses on DESIGN quality (patterns, structure, maintainability) that linters cannot catch.
+- Anything a linter or formatter already enforces.
+- Whether the change runs. Tests passing is not verification; see
+  [verification-discipline.md](verification-discipline.md).
+- Test value in an existing suite, which is the explicit-only `test-audit` skill.

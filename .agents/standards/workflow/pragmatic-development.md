@@ -4,7 +4,7 @@ Practical engineering principles that apply regardless of programming language, 
 
 ## Trigger Context
 
-Apply as general development guidance during implementation. These principles inform how code is written, not what is tested or reviewed (see `test-quality.md` and `code-review.md` for those).
+Apply as general development guidance during implementation. These principles inform how code is written, not what is tested or reviewed (see the installed `tdd` skill and `code-review.md` for those).
 
 ## Principles
 

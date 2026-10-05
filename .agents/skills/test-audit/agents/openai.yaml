@@ -1,0 +1,8 @@
+interface:
+  display_name: "Test Audit"
+  short_description: "Audit and repair one repository's test suite"
+  default_prompt: "Use $test-audit to audit the tests in this repository. Name the paths to cover, and add `repair` when you want the findings applied."
+policy:
+  # Command-style skill: a person invokes it. Auditing a whole suite must not
+  # start on its own off an ordinary test edit.
+  allow_implicit_invocation: false
