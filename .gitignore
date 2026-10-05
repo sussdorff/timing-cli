@@ -25,22 +25,11 @@ uv.lock
 # Claude Code
 .claude
 
-# Dolt database files (added by bd init)
 .dolt/
 *.db
 
-# Beads JSONL export is local; Dolt is the source of truth.
-.beads/issues.jsonl
 
-# Beads runtime artifacts (run state, metrics)
-.beads/runs/
-.beads/export-state.json
 
 # Session-close runner artifacts
 .session-close-state.json
 .session-close.lock
-
-# Beads / Dolt files (added by bd init)
-.beads-credential-key
-.beads/proxieddb/
-

@@ -45,7 +45,5 @@ commit_parsers = [
     { message = "^ci", group = "Build" },
     { message = "^chore", group = "Changed" },
     { message = "^revert", group = "Changed" },
-    { message = "^bd sync:", skip = true },
-    { message = "^bd:", skip = true },
     { message = ".*", group = "Changed" },
 ]
