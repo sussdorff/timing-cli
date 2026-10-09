@@ -9,6 +9,11 @@ on:
 permissions:
   contents: read
 
+env:
+  # Use only the interpreter actions/setup-python installed; never let uv
+  # download or reuse a different (stale or newer-minor) CPython.
+  UV_PYTHON_PREFERENCE: only-system
+
 jobs:
   quality:
     runs-on: ubuntu-latest
@@ -17,8 +22,16 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - name: Install Python
+        uses: actions/setup-python@v7
+        with:
+          python-version-file: .python-version
+          check-latest: true
+
       - name: Install uv
         uses: astral-sh/setup-uv@v6
+        with:
+          version: latest
 
       - name: Run test suite
         run: uv run pytest -q
@@ -31,3 +44,13 @@ jobs:
 
       - name: Build package
         run: uv build
+
+  toolchains:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Check toolchain versions
+        run: python3 .agents/standards/toolchains/scripts/check_toolchain_versions.py

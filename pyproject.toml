@@ -6,7 +6,7 @@ authors = [
     { name = "Malte Sussdorff" },
 ]
 readme = "README.md"
-requires-python = ">=3.12"
+requires-python = ">=3.14"
 license = "MIT"
 license-files = ["LICENSE"]
 keywords = ["timing", "time-tracking", "cli", "mcp", "macos", "productivity"]
@@ -17,8 +17,7 @@ classifiers = [
     "Operating System :: MacOS",
     "Operating System :: MacOS :: MacOS X",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.12",
-    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
     "Topic :: Office/Business",
     "Topic :: Utilities",
 ]
@@ -67,7 +66,7 @@ dev = [
 ]
 
 [tool.ruff]
-target-version = "py312"
+target-version = "py314"
 line-length = 100
 # Library-managed agent tooling is vendored content, not project source.
 extend-exclude = [".agents", ".claude", ".codex"]

@@ -331,10 +331,21 @@ GitHub releases or manual dispatches build the package and publish to PyPI using
 Trusted Publishing. Configure a PyPI trusted publisher for the repository and
 the `pypi` environment before running the publish job.
 
+## Pre-push check
+
+`scripts/dev/preflight.sh` runs the toolchain version check
+(`.agents/standards/toolchains/scripts/check_toolchain_versions.py`) and fails
+the push when it fails. The fleet global pre-push hook (`~/.githooks/pre-push`)
+calls it automatically when `core.hooksPath` is not overridden locally. A clone
+with its own hooks calls `.githooks/pre-push` (or `scripts/dev/preflight.sh`)
+from its existing pre-push hook. Do not point `core.hooksPath` at `.githooks`:
+that disables existing hooks such as the global no-agent-trailer guard. CI runs
+the same check in the `toolchains` job.
+
 ## Requirements
 
 - macOS with Timing.app installed
-- Python 3.12+ (installed automatically by `uv tool install`)
+- Python 3.14 or newer (installed automatically by `uv tool install`)
 - A Timing Web API token for pushing entries (read-only commands need no token)
 
 ## License

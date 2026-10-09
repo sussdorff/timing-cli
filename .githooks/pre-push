@@ -1,0 +1,6 @@
+#!/bin/sh
+# Pre-push hook: delegate to the repository preflight (single source of truth).
+set -eu
+
+top="$(git rev-parse --show-toplevel)"
+exec bash "$top/scripts/dev/preflight.sh" "$@"
