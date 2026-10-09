@@ -74,6 +74,53 @@ never report a suite green on the strength of tests that skipped.
 Counts, runtimes and slowest-file lists are targeting aids that decide reading order.
 They are never evidence that a test is worthless.
 
+## Declared test units
+
+Check whether the repository's `AGENTS.md` names a test-unit declaration, the JSON
+file described under "Declared test units" in the `workflow/test-quality`
+standard. Without one, skip this section: the audit runs exactly as described
+everywhere else.
+
+With one, run the boundary report from this skill's root, resolved from the first
+root that exists, project-local before global:
+
+```text
+<repo>/.agents/skills/test-audit   <repo>/.claude/skills/test-audit
+~/.agents/skills/test-audit        ~/.claude/skills/test-audit
+```
+
+```text
+uv run --no-project python <skill-root>/scripts/boundary_report.py \
+  --repo <repo> --declaration <repo-relative declaration path> [--json]
+```
+
+A relative `--declaration` path resolves against `--repo`. The helper reads files
+only and changes nothing, so it is safe in audit mode. It lists, per declared
+module, tests outside the module that import past its entry (`boundary-bypass`)
+and tests inside it that import internals without a `test-boundary-exception:`
+reason (`internal-without-reason`), with tests that state a reason shown
+separately. Per declared port it lists the contract runs found for each adapter
+(the declared contract file is read whatever its name),
+adapters without one (`adapter-without-contract-run`), test files that import the
+contract with several adapters and so cover none (`ambiguous-contract-run`), tests
+that import a real adapter outside the contract suite, its runs and the adapter's
+own tests (`port-bypass`), and a port without an in-memory adapter
+(`port-without-in-memory-adapter`). Exit 2 means the declaration is invalid:
+report that as a finding and the boundary results as unverified.
+
+Everything it reports is a static candidate. Confirm each finding by reading the
+test, then record it in the class **boundary** with all five fields below,
+grouped per module or port. Confirm each reported contract run by reading it too:
+importing the contract and an adapter does not prove the suite is invoked against
+that adapter. A confirmed bypass usually repairs to the entry or port; a missing
+contract run usually needs the port's contract suite run against that adapter.
+
+The report also lists, per test file, the import specifiers it could not check
+(`unchecked`): relative specifiers that did not resolve, alias-like specifiers no
+declared alias resolves, unresolved Python relative imports, and test files it
+could not read (`unreadable:`) or parse (`unparseable:`). Put them in the
+report's limitations section; boundaries behind them are unverified.
+
 ## The question
 
 For every test you inspect, ask:
@@ -193,8 +240,9 @@ defect and is not a repair.
 ## Report
 
 Close with the target and path set, the entry points and baseline you observed, the
-findings in the table format above, and an explicit limitations section: what you did
-not read, could not run, and left unresolved. In repair mode, add the kept-versus-
-changed outcome for each finding and the checks you re-ran.
+findings in the table format above (boundary findings grouped per declared module
+and port, or a note that the repository declares no test units), and an explicit
+limitations section: what you did not read, could not run, and left unresolved. In
+repair mode, add the kept-versus-changed outcome for each finding and the checks you re-ran.
 Include the resource inventory, cleanup repairs, before/after residue and failure-path
 evidence; name any retained artifacts, cleanup errors or unverified teardown paths.

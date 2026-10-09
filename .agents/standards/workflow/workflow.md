@@ -1,6 +1,12 @@
 ---
 domain: workflow
 description: The shared development workflow — hosted-issue intake and specification, review and verification discipline, engineering practice, and the cross-cutting rules that apply to every repository tracking work in hosted issues.
+requires_standards:
+  - review-governance/finding-adjudication
+  - types
+  - orchestrator/scope-creep-policy
+  - python-cli-patterns/test-suite-upkeep
+  - typescript/test-suite-upkeep
 ---
 
 # Workflow Standards

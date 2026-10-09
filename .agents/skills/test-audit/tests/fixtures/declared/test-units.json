@@ -1,0 +1,20 @@
+{
+  "modules": [
+    {
+      "name": "proposals",
+      "dir": "src/proposals",
+      "entry": "src/proposals/index.ts"
+    }
+  ],
+  "ports": [
+    {
+      "name": "storage",
+      "port": "pkg/storage/port.py",
+      "contract": "pkg/storage/contract.py",
+      "adapters": [
+        {"name": "memory", "path": "pkg/storage/memory.py", "in_memory": true},
+        {"name": "postgres", "path": "pkg/storage/postgres.py"}
+      ]
+    }
+  ]
+}

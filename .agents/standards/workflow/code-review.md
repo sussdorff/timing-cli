@@ -1,3 +1,11 @@
+---
+requires_standards:
+  - orchestrator/scope-creep-policy
+  - review-governance/finding-adjudication
+  - types
+  - workflow/verification-discipline
+---
+
 # Code Review
 
 What to look for in a diff is owned by the installed `code-review` skill, not by this
@@ -5,7 +13,7 @@ standard. This file holds only what is local to reviews in these repositories.
 
 ## The method lives in the `code-review` skill
 
-Read it from the first root that exists, project-local before global:
+Read it from the first root that has a readable `SKILL.md`, project-local before global:
 
 ```text
 <repo>/.agents/skills/code-review   <repo>/.claude/skills/code-review
