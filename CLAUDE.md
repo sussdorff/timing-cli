@@ -1,21 +1,18 @@
 # Project Instructions for AI Agents
 
-This file provides instructions and context for AI coding agents working on this project.
+Read `AGENTS.md` for the tracker and pull request rules.
 
 ## Build & Test
 
-_Add your build and test commands here_
+Run these before a push; `.github/workflows/ci.yml` runs the same checks:
 
 ```bash
-# Example:
-# npm install
-# npm test
+uv run pytest -q
+uv run ruff check .
+uv run bandit -r timing_cli -q
+uv build
+bash scripts/dev/preflight.sh   # toolchain version check
 ```
 
-## Architecture Overview
-
-_Add a brief overview of your project architecture_
-
-## Conventions & Patterns
-
-_Add your project-specific conventions here_
+`scripts/dev/check_toolchain_versions.py` is a copy of the shared toolchains check;
+ruff excludes it.
