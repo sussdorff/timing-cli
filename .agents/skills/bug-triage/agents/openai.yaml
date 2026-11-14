@@ -1,4 +1,0 @@
-interface:
-  display_name: "Bug Triage"
-  short_description: "Structured 4-phase bug investigation: Reproduce → Root Cause → Fix → Regression Test."
-  default_prompt: "Use the bug-triage skill to systematically investigate this bug. Describe: (1) what you expected, (2) what actually happened, (3) any error messages or stack traces."

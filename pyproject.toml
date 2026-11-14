@@ -68,8 +68,8 @@ dev = [
 [tool.ruff]
 target-version = "py314"
 line-length = 100
-# Library-managed agent tooling is vendored content, not project source.
-extend-exclude = [".agents", ".claude", ".codex"]
+# The toolchain check came from the shared toolchains standard; keep it as published.
+extend-exclude = ["scripts/dev/check_toolchain_versions.py"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B", "C4"]

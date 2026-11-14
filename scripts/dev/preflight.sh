@@ -7,7 +7,7 @@ set -euo pipefail
 top="$(git rev-parse --show-toplevel)"
 cd "$top"
 
-if ! python3 .agents/standards/toolchains/scripts/check_toolchain_versions.py; then
+if ! python3 scripts/dev/check_toolchain_versions.py; then
     echo "preflight: toolchain version check failed; push aborted." >&2
     exit 1
 fi

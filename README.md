@@ -334,7 +334,7 @@ the `pypi` environment before running the publish job.
 ## Pre-push check
 
 `scripts/dev/preflight.sh` runs the toolchain version check
-(`.agents/standards/toolchains/scripts/check_toolchain_versions.py`) and fails
+(`scripts/dev/check_toolchain_versions.py`) and fails
 the push when it fails. The fleet global pre-push hook (`~/.githooks/pre-push`)
 calls it automatically when `core.hooksPath` is not overridden locally. A clone
 with its own hooks calls `.githooks/pre-push` (or `scripts/dev/preflight.sh`)

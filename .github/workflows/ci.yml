@@ -53,4 +53,4 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Check toolchain versions
-        run: python3 .agents/standards/toolchains/scripts/check_toolchain_versions.py
+        run: python3 scripts/dev/check_toolchain_versions.py
